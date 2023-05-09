@@ -1,0 +1,25 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="torch" />
+          <option value="training.sklearn" />
+          <option value="training.print" />
+          <option value="training.range" />
+          <option value="training.iter" />
+          <option value="training.next" />
+          <option value="numpy" />
+          <option value="training.matplotlib_imshow" />
+          <option value="training.len" />
+          <option value="torchvision" />
+          <option value="training.matplotlib" />
+          <option value="training.enumerate" />
+          <option value="training.datetime" />
+          <option value="wandb" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
