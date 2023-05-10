@@ -1,4 +1,4 @@
-from dataset import get_dataset
+from dataset import SNDetection
 
 
 def train_one_epoch_detection(args):
@@ -10,5 +10,7 @@ def train_one_epoch_detection(args):
 
     # Data Loading Code
     print('Loading Data for Detection Training')
-    get_dataset(args.data_path, args.split)
+    dataset = SNDetection(args.data_path)
+
+
 
