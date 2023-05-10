@@ -11,7 +11,7 @@ def get_args():
     parser.add_argument('--output-dir', type=str, default='', help='directory where to save results, empty if no saving')
     parser.add_argument('--task', type=str, help='detection, calibration or retrieval')
     parser.add_argument('--epochs', default=100, type=int)
-    parser.add_argument('-b', '--batch-size', default=4, type=int)
+    parser.add_argument('--batch-size', default=4, type=int)
 
     args = parser.parse_args()
     return args

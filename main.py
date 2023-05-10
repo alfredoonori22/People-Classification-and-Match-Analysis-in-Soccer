@@ -1,4 +1,5 @@
 from argument_parser import get_args
+from train_detection import train_one_epoch_detection
 import os
 import errno
 import torch
@@ -6,6 +7,7 @@ import torch
 
 if __name__ == '__main__':
     args = get_args()
+    print('These are the parameters from the command line: ')
     print(args)
 
     if args.output_dir:
@@ -28,7 +30,7 @@ if __name__ == '__main__':
 
         if args.split == 'train':
             print('Train phase for Detection task')
-            # chiamata a funzione train da definire
+            train_one_epoch_detection(args)
         else:
             print('Test phase for Detection task')
             # chiamata a funzione test da definire
