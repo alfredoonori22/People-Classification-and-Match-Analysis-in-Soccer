@@ -10,19 +10,23 @@ from torchvision import transforms
 from torchvision import io
 from PIL import Image
 from SoccerNet.Evaluation.utils import FRAME_CLASS_DICTIONARY
+import torch.utils.data
 
 
 # Building the dataset
 class SNDetection(torch.utils.data.Dataset):
     print('starting the SNDetection creation')
 
-    def __init__(self, path, split="all", resolution=(1920, 1080), preload_images=False, zipped_images=False):
+    def __init__(self, path, split="all", resolution=(1920, 1080), preload_images=False, tiny=None,
+                 zipped_images=False):
 
         # Path for the SoccerNet-v3 Dataset containing images and labels
         self.path = path
 
         # Get the list of the selected subset of games
         self.list_games = getListGames(split, task='frames')
+        if tiny is not None:
+            self.list_games = self.list_games[:tiny]
 
         # Resolution of the images to load (width, height)
         self.resolution = resolution
@@ -85,6 +89,9 @@ class SNDetection(torch.utils.data.Dataset):
                     IDs_list.append(ID_tmp)
 
                     self.data[-1].append(data_tmp)
+
+    def __len__(self, ):
+        return len(self.list_games)
 
     def format_bboxes(self, bboxes, image_metadata):
 
