@@ -1,7 +1,8 @@
 import torch.nn
+from tqdm import tqdm
 
 
-def train_one_epoch_detection(model, optimizer, training_loader, device, args):
+def train_one_epoch_detection(model, optimizer, training_loader, args):
     epochs = args.epochs
     batch_size = args.batch_size
     running_loss = 0.0
@@ -13,21 +14,26 @@ def train_one_epoch_detection(model, optimizer, training_loader, device, args):
     # Make sure gradient tracking is on, and do a pass over the data
     model.train()
 
-    for i, data in enumerate(training_loader):
-        # Every data instance is an input + label pair
-        inputs, labels = data
-        inputs = inputs.cuda()
+    for i, (images, targets) in enumerate(training_loader):
+
+        # Every data instance is an image + target pair
+        images = list(image.cuda() for image in images)
+        targets = [{k: v.squeeze().cuda() for k, v in targets.items()}]
 
         # Zero gradients for every batch!
         optimizer.zero_grad()
 
+        print(targets)
+
         # Make predictions for this batch
-        outputs = model(inputs)
-        inputs = inputs.cpu()
+        outputs = model(images, targets)
+        print(outputs)
+        exit()
+
         outputs = outputs.cpu()
 
         # Compute the loss and its gradients
-        loss = loss_fn(outputs, labels)
+        loss = loss_fn(outputs, target)
         loss.backward()
 
         # Adjust learning weights

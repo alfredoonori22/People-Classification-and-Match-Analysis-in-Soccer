@@ -1,3 +1,4 @@
+from torchvision.models import ResNet50_Weights
 from argument_parser import get_args
 from train_detection import train_one_epoch_detection
 from dataset import SNDetection
@@ -6,14 +7,6 @@ import errno
 import time
 import torch.utils.data
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
-
-CLASS_DICT = {'Ball': 1,
-              'Player': 2,
-              'Goalkeeper': 3,
-              'Main referee': 4,
-              'Side referee': 5,
-              'Staff members': 6
-             }
 
 if __name__ == '__main__':
     args = get_args()
@@ -43,19 +36,24 @@ if __name__ == '__main__':
 
             # Data Loading Code
             print('Loading Data for Detection Training')
-            dataset_train = SNDetection(args.data_path, 'train')
-            dataset_valid = SNDetection(args.data_path, 'valid')
 
-            train_batch_sampler = torch.utils.data.BatchSampler(torch.utils.data.RandomSampler(dataset_train), args.batch_size, drop_last=True)
+            dataset_train = SNDetection(args.data_path, split=args.split, tiny=args.tiny)
 
             # Create data loaders for our datasets
-            training_loader = torch.utils.data.DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True)
-            validation_loader = torch.utils.data.DataLoader(dataset_valid, batch_size=args.batch_size, shuffle=True)
+            # training_loader = torch.utils.data.DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True)
+            # validation_loader = torch.utils.data.DataLoader(dataset_valid, batch_size=args.batch_size, shuffle=True)
+
+            #training_loader = DataLoader(dataset_train, batch_size=1, shuffle=False)
+
+            training_batch_sampler = torch.utils.data.BatchSampler(
+                torch.utils.data.RandomSampler(dataset_train), batch_size=args.batch_size, drop_last=True)
+
+            training_loader = torch.utils.data.DataLoader(dataset_train, batch_sampler=training_batch_sampler)
 
             print('Creating Model')
             kwargs = {"tau_l": args.tl, "tau_h": args.th}
-            model = fasterrcnn_resnet50_fpn(num_classes=6, pretrained_backbone=args.pretrained, **kwargs)
-            model.to(device)
+            model = fasterrcnn_resnet50_fpn(num_classes=6, weights_backbone=ResNet50_Weights.DEFAULT, **kwargs)
+            model.cuda()
             print('Model Created')
 
             params = [p for p in model.parameters() if p.requires_grad]
@@ -67,7 +65,8 @@ if __name__ == '__main__':
             start_time = time.time()
             for epoch in range(args.epochs):
                 print(f'EPOCH: {epoch + 1}')
-                train_one_epoch_detection(model, optimizer, training_loader, device, args)
+
+                train_one_epoch_detection(model, optimizer, training_loader, args)
 
 
         else:

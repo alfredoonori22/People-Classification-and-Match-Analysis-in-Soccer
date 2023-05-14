@@ -1,138 +1,112 @@
 import torch.utils.data
 import json
 import os
-import copy
-import torchvision.transforms
-import zipfile
 from tqdm import tqdm
 from SoccerNet.utils import getListGames
-from torchvision import transforms
-from torchvision import io
 from PIL import Image
-from SoccerNet.Evaluation.utils import FRAME_CLASS_DICTIONARY
 import torch.utils.data
+from torchvision.transforms import functional
 
+CLASS_DICT = {'Ball': 1,
+              'Player team left': 2,
+              'Player team right': 3,
+              'Goalkeeper team left': 4,
+              'Goalkeeper team right': 5,
+              'Main referee': 6,
+              'Side referee': 7,
+              'Staff members': 8
+             }
+
+"""
+class CheckBoxes:
+    def __call__(self, image, target):
+        w, h = image.size
+
+        boxes = target['boxes']
+        boxes[:, 0::2].clamp_(min=0, max=w)
+        boxes[:, 1::2].clamp_(min=0, max=h)
+
+        target['boxes'] = boxes
+
+        return image, target
+
+class Compose(object):
+    def __init__(self, transforms):
+        self.transforms = transforms
+
+    def __call__(self, image, target):
+        for t in self.transforms:
+            image, target = t(image, target)
+        return image, target
+"""
 
 # Building the dataset
 class SNDetection(torch.utils.data.Dataset):
-    print('starting the SNDetection creation')
+    def __init__(self, path,split, tiny):
+        # Per il momento non fa nulla, poi servirà per le operazioni di transform
+        #t = [CheckBoxes()]
+        #transform = Compose(t)
+        #self.transforms = transform
 
-    def __init__(self, path, split="all", resolution=(1920, 1080), preload_images=False, tiny=None,
-                 zipped_images=False):
-
-        # Path for the SoccerNet-v3 Dataset containing images and labels
         self.path = path
 
         # Get the list of the selected subset of games
-        self.list_games = getListGames(split, task='frames')
+        self.list_games = getListGames(split, task="frames")
         if tiny is not None:
             self.list_games = self.list_games[:tiny]
 
-        # Resolution of the images to load (width, height)
-        self.resolution = resolution
-        self.resize = torchvision.transforms.Resize((resolution[1],resolution[0]), antialias=True)
-        self.preload_images = preload_images
-        self.zipped_images = zipped_images
-
-        # Variable to store the metadata
-        print('Reading the annotation files')
-        self.metadata = list()
-        for game in tqdm(self.list_games):
-            self.metadata.append(json.load(open(os.path.join(self.path, game, "Labels-v3.json"))))
-
-        # Variable to store the preloaded images and annotations
-        # Each element in the list is a list of images and annotations linked to an action
         self.data = list()
+        for game in tqdm(self.list_games):
+            self.data.append(json.load(open(os.path.join(self.path, game, "Labels-v3.json"))))
 
-        for annotations in tqdm(self.metadata):
+        self.targets = list()
+        self.labels = list()
 
-            # Retrieve each action in the game
-            for action_name in annotations['GameMetadata']['list_actions']:
+        # Variable for the total length of the dataset
+        self.tot_len = 0
 
-                # Concatenate the replays of each action with itself
-                img_list = [action_name] + annotations['actions'][action_name]['linked_replays']
-                self.data.append(list())
-                IDs_list = list()
+        # Variable that stores the full name of each image (ex, 'path/0.png')
+        self.full_keys = []
 
-                zipfilepath = os.path.join(self.path,annotations["GameMetadata"]["UrlLocal"], 'Frames-v3.zip')
-                if self.zipped_images:
-                    zippedFrames = zipfile.ZipFile(zipfilepath, 'r')
+        for i,game in enumerate(self.list_games):
+            # Loop through the game
 
-                # For each image extract the images and annotations
-                for i, img in enumerate(img_list):
+            self.keys = list(self.data[i]['actions'].keys())     # List of images of each game
+            self.tot_len = self.tot_len + len(self.keys)
 
-                    # Variable to save the annotation
-                    data_tmp = dict()
-                    data_tmp['image'] = None
+            for k in self.keys:
+                # Loop through the images
+                self.full_keys.append(f'{self.path}/{game}/Frames-v3/{k}')
 
-                    # Only the first frame is an action, the rest are replays
-                    img_type = 'actions'
-                    if i > 0:
-                        img_type = 'replays'
+                boxes = list()
+                labels = list()
+                image_id = k.split('.')[0]
 
-                    filepath = os.path.join(self.path,annotations["GameMetadata"]["UrlLocal"], "Frames-v3", img)
-                    if self.preload_images:
-                        with torch.no_grad():
-                            if self.zipped_images:
-                                imginfo = zippedFrames.open(img)
-                                data_tmp['image'] = self.resize(transforms.ToTensor()(Image.open(imginfo))*255)
-                            else:
-                                data_tmp['image'] = self.resize(torchvision.io.read_image(filepath))
+                for b in self.data[i]['actions'][k]['bboxes']:
+                    # Loop through the bboxes of each image
+                    # Verify if the bbox's label is in the dictionary
+                    if b['class'] not in CLASS_DICT:
+                        continue
 
-                    data_tmp['zipfilepath'] = zipfilepath
-                    data_tmp['imagefilepath'] = img
-                    data_tmp['filepath'] = filepath
+                    # Creating a list of image's labels
+                    self.labels.append(CLASS_DICT[b['class']])
+                    labels.append(CLASS_DICT[b['class']])
 
-                    data_tmp['bboxes'], ID_tmp = self.format_bboxes(annotations[img_type][img]['bboxes'],
-                                                                    annotations[img_type][img]['imageMetadata'])
+                    # Creating a list of dictionaries with the points of the bboxes
+                    boxes.append([b['points']['x1'],b['points']['x2'],b['points']['y1'],b['points']['y2']])
 
-                    IDs_list.append(ID_tmp)
+                self.targets.append({'boxes': torch.tensor(boxes),
+                                    'labels': torch.tensor(labels),
+                                    'image_id': torch.tensor(int(image_id))})
 
-                    self.data[-1].append(data_tmp)
 
     def __len__(self, ):
-        return len(self.list_games)
+        return self.tot_len
 
-    def format_bboxes(self, bboxes, image_metadata):
+    def __getitem__(self, idx):
 
-        # Bounding boxes in x_top, y_top, width, height, cls_idx, num_idx
-        data = list()
-        IDs = list()
+        image = Image.open(self.full_keys[idx]).convert('RGB')
+        targets = self.targets[idx]
+        #image, targets = self.transforms(image, targets)
 
-        for i, bbox in enumerate(bboxes):
-
-            if bbox['class'] is not None:
-
-                tmp_data = torch.zeros((4 + 1 + 1,), dtype=torch.float) - 1
-                tmp_data[0] = bbox['points']['x1'] / image_metadata['width']
-                tmp_data[1] = bbox['points']['y1'] / image_metadata['height']
-                tmp_data[2] = abs(bbox['points']['x2'] - bbox['points']['x1']) / image_metadata['width']
-                tmp_data[3] = abs(bbox['points']['y2'] - bbox['points']['y1']) / image_metadata['height']
-                tmp_data[4] = float(FRAME_CLASS_DICTIONARY[bbox['class']])
-
-                if bbox['ID'] is not None:
-                    if bbox['ID'].isnumeric():
-                        tmp_data[5] = float(bbox['ID'])
-
-                IDs.append([bbox['ID'], FRAME_CLASS_DICTIONARY[bbox['class']]])
-                data.append(tmp_data)
-
-        data = torch.stack(data)
-        return data, IDs
-
-    def __getitem__(self, index):
-
-        if not self.preload_images:
-            data = copy.deepcopy(self.data[index])
-            with torch.no_grad():
-                for i, d in enumerate(data):
-                    if self.zipped_images:
-                        imginfo = zipfile.ZipFile(d['zipfilepath'], 'r').open(d['imagefilepath'])
-                        img = transforms.ToTensor()(Image.open(imginfo)) * 255
-                        data[i]['image'] = self.resize(img)
-
-                    else:
-                        data[i]['image'] = self.resize(torchvision.io.read_image(d['filepath']))
-                return data
-
-        return self.data[index]
+        return functional.to_tensor(image), targets
