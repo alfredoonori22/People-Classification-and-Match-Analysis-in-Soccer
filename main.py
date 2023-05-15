@@ -37,22 +37,21 @@ if __name__ == '__main__':
             # Data Loading Code
             print('Loading Data for Detection Training')
 
-            dataset_train = SNDetection(args.data_path, split=args.split, tiny=args.tiny)
+            dataset_train = SNDetection(args.data_path, split='train', tiny=args.tiny)
+            dataset_valid = SNDetection(args.data_path, split='valid', tiny=args.tiny)
 
             # Create data loaders for our datasets
-            # training_loader = torch.utils.data.DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True)
-            # validation_loader = torch.utils.data.DataLoader(dataset_valid, batch_size=args.batch_size, shuffle=True)
-
-            #training_loader = DataLoader(dataset_train, batch_size=1, shuffle=False)
-
             training_batch_sampler = torch.utils.data.BatchSampler(
                 torch.utils.data.RandomSampler(dataset_train), batch_size=args.batch_size, drop_last=True)
+            valid_batch_sampler = torch.utils.data.BatchSampler(
+                torch.utils.data.RandomSampler(dataset_valid), batch_size=args.batch_size, drop_last=True)
 
             training_loader = torch.utils.data.DataLoader(dataset_train, batch_sampler=training_batch_sampler)
+            validation_loader = torch.utils.data.DataLoader(dataset_valid, batch_sampler=valid_batch_sampler)
 
             print('Creating Model')
             kwargs = {"tau_l": args.tl, "tau_h": args.th}
-            model = fasterrcnn_resnet50_fpn(num_classes=6, weights_backbone=ResNet50_Weights.DEFAULT, **kwargs)
+            model = fasterrcnn_resnet50_fpn(num_classes=dataset_train.num_classes()+1, weights_backbone=ResNet50_Weights.DEFAULT, **kwargs)
             model.cuda()
             print('Model Created')
 
@@ -67,7 +66,6 @@ if __name__ == '__main__':
                 print(f'EPOCH: {epoch + 1}')
 
                 train_one_epoch_detection(model, optimizer, training_loader, args)
-
 
         else:
             print('Test phase for Detection task')

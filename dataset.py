@@ -15,9 +15,9 @@ CLASS_DICT = {'Ball': 1,
               'Main referee': 6,
               'Side referee': 7,
               'Staff members': 8
-             }
+              }
 
-"""
+
 class CheckBoxes:
     def __call__(self, image, target):
         w, h = image.size
@@ -29,7 +29,7 @@ class CheckBoxes:
         target['boxes'] = boxes
 
         return image, target
-
+"""
 class Compose(object):
     def __init__(self, transforms):
         self.transforms = transforms
@@ -40,13 +40,14 @@ class Compose(object):
         return image, target
 """
 
+
 # Building the dataset
 class SNDetection(torch.utils.data.Dataset):
-    def __init__(self, path,split, tiny):
+    def __init__(self, path, split, tiny):
         # Per il momento non fa nulla, poi servirà per le operazioni di transform
-        #t = [CheckBoxes()]
-        #transform = Compose(t)
-        #self.transforms = transform
+        # t = [CheckBoxes()]
+        # transform = Compose(t)
+        # self.transforms = transform
 
         self.path = path
 
@@ -68,10 +69,10 @@ class SNDetection(torch.utils.data.Dataset):
         # Variable that stores the full name of each image (ex, 'path/0.png')
         self.full_keys = []
 
-        for i,game in enumerate(self.list_games):
+        for i, game in enumerate(self.list_games):
             # Loop through the game
 
-            self.keys = list(self.data[i]['actions'].keys())     # List of images of each game
+            self.keys = list(self.data[i]['actions'].keys())  # List of images of each game
             self.tot_len = self.tot_len + len(self.keys)
 
             for k in self.keys:
@@ -93,12 +94,16 @@ class SNDetection(torch.utils.data.Dataset):
                     labels.append(CLASS_DICT[b['class']])
 
                     # Creating a list of dictionaries with the points of the bboxes
-                    boxes.append([b['points']['x1'],b['points']['x2'],b['points']['y1'],b['points']['y2']])
+                    boxes.append([b['points']['x1'], b['points']['y1'], b['points']['x2'], b['points']['y2']])
 
                 self.targets.append({'boxes': torch.tensor(boxes),
-                                    'labels': torch.tensor(labels),
-                                    'image_id': torch.tensor(int(image_id))})
+                                     'labels': torch.tensor(labels),
+                                     'image_id': torch.tensor(int(image_id))})
 
+        self.labels = [i for i in set(self.labels) if i > 0]
+
+    def num_classes(self, ):
+        return len(self.labels)
 
     def __len__(self, ):
         return self.tot_len
@@ -107,6 +112,8 @@ class SNDetection(torch.utils.data.Dataset):
 
         image = Image.open(self.full_keys[idx]).convert('RGB')
         targets = self.targets[idx]
-        #image, targets = self.transforms(image, targets)
+
+        self.transform = CheckBoxes()
+        image, targets = self.transform(image, targets)
 
         return functional.to_tensor(image), targets

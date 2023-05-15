@@ -20,27 +20,21 @@ def train_one_epoch_detection(model, optimizer, training_loader, args):
         images = list(image.cuda() for image in images)
         targets = [{k: v.squeeze().cuda() for k, v in targets.items()}]
 
+        # Make predictions for this batch
+        loss_dict = model(images, targets)
+        losses = sum(loss for loss in loss_dict.values())
+
         # Zero gradients for every batch!
         optimizer.zero_grad()
 
-        print(targets)
-
-        # Make predictions for this batch
-        outputs = model(images, targets)
-        print(outputs)
-        exit()
-
-        outputs = outputs.cpu()
-
-        # Compute the loss and its gradients
-        loss = loss_fn(outputs, target)
-        loss.backward()
+        losses.backward()
 
         # Adjust learning weights
         optimizer.step()
 
+        print(losses.item())
         # Gather data
-        running_loss += loss.item()
+        running_loss += losses.item()
 
         if i % 1000 == 999:
             last_loss = running_loss / 1000  # loss per batch
