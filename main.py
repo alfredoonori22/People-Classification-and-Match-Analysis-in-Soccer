@@ -55,9 +55,8 @@ if __name__ == '__main__':
             model.cuda()
             print('Model Created')
 
-            params = [p for p in model.parameters() if p.requires_grad]
-
             # Optimizer
+            params = [p for p in model.parameters() if p.requires_grad]
             optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
             print("Start training")

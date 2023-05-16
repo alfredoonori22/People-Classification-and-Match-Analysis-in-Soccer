@@ -29,6 +29,8 @@ class CheckBoxes:
         target['boxes'] = boxes
 
         return image, target
+
+
 """
 class Compose(object):
     def __init__(self, transforms):
@@ -75,6 +77,7 @@ class SNDetection(torch.utils.data.Dataset):
             self.keys = list(self.data[i]['actions'].keys())  # List of images of each game
             self.tot_len = self.tot_len + len(self.keys)
 
+            # TODO: Dobbiamo considerare anche le immagini dei replay
             for k in self.keys:
                 # Loop through the images
                 self.full_keys.append(f'{self.path}/{game}/Frames-v3/{k}')
@@ -85,16 +88,27 @@ class SNDetection(torch.utils.data.Dataset):
 
                 for b in self.data[i]['actions'][k]['bboxes']:
                     # Loop through the bboxes of each image
+
                     # Verify if the bbox's label is in the dictionary
                     if b['class'] not in CLASS_DICT:
                         continue
+
+                    # Descard degenerate bboxes (we assure that xmin < xmax and the same for y)
+                    if (b['points']['x2'] <= b['points']['x1']) or (b['points']['y2'] <= b['points']['y1']):
+                        continue
+                    else:
+                        # Creating a list with the points of the bboxes
+                        boxes.append([b['points']['x1'], b['points']['y1'], b['points']['x2'], b['points']['y2']])
 
                     # Creating a list of image's labels
                     self.labels.append(CLASS_DICT[b['class']])
                     labels.append(CLASS_DICT[b['class']])
 
-                    # Creating a list of dictionaries with the points of the bboxes
-                    boxes.append([b['points']['x1'], b['points']['y1'], b['points']['x2'], b['points']['y2']])
+                # TODO : Controllare se si puo evitare di scartare le img con una solo bbox
+                # Se ho solo una bboxes nell'immagine non la considero perchè
+                # da problemi con lo squeeze() nel train_one_epoch (dato che N=1 la dimensione (N,4) diventa solo (4))
+                if len(boxes) == 1:
+                    continue
 
                 self.targets.append({'boxes': torch.tensor(boxes),
                                      'labels': torch.tensor(labels),
@@ -113,6 +127,7 @@ class SNDetection(torch.utils.data.Dataset):
         image = Image.open(self.full_keys[idx]).convert('RGB')
         targets = self.targets[idx]
 
+        # TODO : Operazioni di preprocessing, per ora solo clamp delle bbox
         self.transform = CheckBoxes()
         image, targets = self.transform(image, targets)
 

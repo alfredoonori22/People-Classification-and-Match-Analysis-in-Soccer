@@ -1,15 +1,5 @@
-import torch.nn
-from tqdm import tqdm
-
-
 def train_one_epoch_detection(model, optimizer, training_loader, args):
-    epochs = args.epochs
-    batch_size = args.batch_size
     running_loss = 0.0
-    last_loss = 0.0
-
-    # Defining Loss
-    loss_fn = torch.nn.CrossEntropyLoss()
 
     # Make sure gradient tracking is on, and do a pass over the data
     model.train()
@@ -32,11 +22,10 @@ def train_one_epoch_detection(model, optimizer, training_loader, args):
         # Adjust learning weights
         optimizer.step()
 
-        print(losses.item())
         # Gather data
         running_loss += losses.item()
 
-        if i % 1000 == 999:
-            last_loss = running_loss / 1000  # loss per batch
-            print('  batch {} loss: {}'.format(i + 1, last_loss))
+        if i % 100 == 99:
+            last_loss = running_loss / 10  # loss per batch
+            print(f'  batch {i+1} loss: {last_loss}')
             running_loss = 0.0

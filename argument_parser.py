@@ -10,7 +10,7 @@ def get_args():
     parser.add_argument('--split', type=str, default='train', help='train or test')
     parser.add_argument('--output-dir', type=str, default='', help='directory where to save results, empty if no saving')
     parser.add_argument('--task', type=str, help='detection, geometry or retrieval')
-    parser.add_argument('--epochs', default=100, type=int)
+    parser.add_argument('--epochs', default=10, type=int)
     parser.add_argument('-b', '--batch-size', default=4, type=int)
     parser.add_argument('--tiny', required=False, type=int, default=None, help='Select a subset of x games')
 
@@ -22,7 +22,7 @@ def get_args():
     # Optimizer
     parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
     parser.add_argument('-wd', '--weight-decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
-    parser.add_argument('--lr', default=0.04, type=float, help='initial learning rate')
+    parser.add_argument('--lr', default=0.01, type=float, help='initial learning rate')
 
     args = parser.parse_args()
     return args
