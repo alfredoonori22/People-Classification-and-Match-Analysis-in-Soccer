@@ -6,6 +6,8 @@ from SoccerNet.utils import getListGames
 from PIL import Image
 import torch.utils.data
 from torchvision.transforms import functional
+import cv2
+import numpy as np
 
 CLASS_DICT = {'Ball': 1,
               'Player team left': 2,
@@ -16,11 +18,49 @@ CLASS_DICT = {'Ball': 1,
               'Side referee': 7,
               'Staff members': 8
               }
+"""
+def draw_boxes(image, target, suffix):
+    for i, box in enumerate(target['boxes']):
+        # changed color and width to make it visible
+        cv2.rectangle(image,
+                      (int(np.round(box[0])), int(np.round(box[1]))), (int(np.round((box[2]))), int(np.round(box[3]))),
+                      (255, 0, 0), 1)
+    cv2.imwrite(f"/mnt/beegfs/homes/aonori/SoccerNet/image_{suffix}.png", image)
+"""
+
+
+def collate_fn(batch):
+    return tuple(zip(*batch))
+
+
+class ResizeAndScale:
+    def __call__(self, image, target):
+        x, y = image.size
+
+        # draw_boxes(np.array(image), target, "prima")
+
+        # Resize the image
+        targetSize = (720, 720)
+        x_scale = targetSize[0] / x
+        y_scale = targetSize[1] / y
+        image = cv2.resize(np.array(image), targetSize)
+
+        # Scale the bboxes
+        boxes = target['boxes']
+        boxes[:, 0::2] = boxes[:, 0::2] * x_scale
+        boxes[:, 1::2] = boxes[:, 1::2] * y_scale
+        target['boxes'] = boxes
+
+        # draw_boxes(np.array(image), target, "dopo")
+
+        return image, target
 
 
 class CheckBoxes:
     def __call__(self, image, target):
-        w, h = image.size
+        # TODO: Rendere la dimensione una variabile impostabile da chiamata dalla linea di comando
+        w = 720
+        h = 720
 
         boxes = target['boxes']
         boxes[:, 0::2].clamp_(min=0, max=w)
@@ -31,7 +71,6 @@ class CheckBoxes:
         return image, target
 
 
-"""
 class Compose(object):
     def __init__(self, transforms):
         self.transforms = transforms
@@ -40,18 +79,21 @@ class Compose(object):
         for t in self.transforms:
             image, target = t(image, target)
         return image, target
-"""
 
 
 # Building the dataset
 class SNDetection(torch.utils.data.Dataset):
-    def __init__(self, path, split, tiny):
-        # Per il momento non fa nulla, poi servirà per le operazioni di transform
-        # t = [CheckBoxes()]
-        # transform = Compose(t)
-        # self.transforms = transform
+    def __init__(self, path, split, tiny, transform=None):
 
         self.path = path
+
+        # t will be the list containg all the pre-process operation, Resize and CheckBoxes are always present here
+        t = [ResizeAndScale(), CheckBoxes()]
+        # if there are other operation the are appended
+        if transform is not None:
+            t.append(transform)
+        # Compose make the list a callable
+        self.transforms = Compose(t)
 
         # Get the list of the selected subset of games
         self.list_games = getListGames(split, task="frames")
@@ -69,24 +111,36 @@ class SNDetection(torch.utils.data.Dataset):
         self.tot_len = 0
 
         # Variable that stores the full name of each image (ex, 'path/0.png')
-        self.full_keys = []
+        self.full_keys = list()
 
         for i, game in enumerate(self.list_games):
             # Loop through the game
 
-            self.keys = list(self.data[i]['actions'].keys())  # List of images of each game
+            self.keys = list(self.data[i]['actions'].keys())  # List of images of each game (actions)
+            self.keys.extend(list(self.data[i]['replays'].keys()))   # and replays images
             self.tot_len = self.tot_len + len(self.keys)
 
-            # TODO: Dobbiamo considerare anche le immagini dei replay
             for k in self.keys:
                 # Loop through the images
                 self.full_keys.append(f'{self.path}/{game}/Frames-v3/{k}')
 
                 boxes = list()
                 labels = list()
-                image_id = k.split('.')[0]
 
-                for b in self.data[i]['actions'][k]['bboxes']:
+                # List containg the bboxes, its value changes depending on the key (k, action/replay)
+                iterate = list()
+                # If it's a replay (0_0.png) get the bboxes from 'replays' key in the json, else from 'actions'
+                if "_" in k:
+                    iterate.extend(self.data[i]['replays'][k]['bboxes'])
+                    # Image ID saved as a float to store information about its replay number
+                    # E.g. 0_0 is the first replay of action 0, and it's saved as a float --> 0.1
+                    image_id = f'{k.split(".")[0].split("_")[0]}.{int(k.split(".")[0].split("_")[1]) + 1}'
+                else:
+                    # Image Id of action 0 is simply 0.0
+                    iterate.extend(self.data[i]['actions'][k]['bboxes'])
+                    image_id = k.split('.')[0]
+
+                for b in iterate:
                     # Loop through the bboxes of each image
 
                     # Verify if the bbox's label is in the dictionary
@@ -104,15 +158,11 @@ class SNDetection(torch.utils.data.Dataset):
                     self.labels.append(CLASS_DICT[b['class']])
                     labels.append(CLASS_DICT[b['class']])
 
-                # TODO : Controllare se si puo evitare di scartare le img con una solo bbox
-                # Se ho solo una bboxes nell'immagine non la considero perchè
-                # da problemi con lo squeeze() nel train_one_epoch (dato che N=1 la dimensione (N,4) diventa solo (4))
-                if len(boxes) == 1:
-                    continue
+                tmp_dict = {'boxes': torch.tensor(boxes),
+                            'labels': torch.tensor(labels),
+                            'image_id': torch.tensor(float(image_id))}
 
-                self.targets.append({'boxes': torch.tensor(boxes),
-                                     'labels': torch.tensor(labels),
-                                     'image_id': torch.tensor(int(image_id))})
+                self.targets.append(tmp_dict)
 
         self.labels = [i for i in set(self.labels) if i > 0]
 
@@ -125,10 +175,9 @@ class SNDetection(torch.utils.data.Dataset):
     def __getitem__(self, idx):
 
         image = Image.open(self.full_keys[idx]).convert('RGB')
-        targets = self.targets[idx]
 
-        # TODO : Operazioni di preprocessing, per ora solo clamp delle bbox
-        self.transform = CheckBoxes()
-        image, targets = self.transform(image, targets)
+        target = self.targets[idx]
+        # TODO : Operazioni di preprocessing, per ora solo resize e clamp delle bbox
+        image, target = self.transforms(image, target)
 
-        return functional.to_tensor(image), targets
+        return functional.to_tensor(image), target

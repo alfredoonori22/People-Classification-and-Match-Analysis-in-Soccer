@@ -1,12 +1,16 @@
+import math
 from torchvision.models import ResNet50_Weights
 from argument_parser import get_args
-from train_detection import train_one_epoch_detection
+from train_detection import train_one_epoch_detection, validation
 from dataset import SNDetection
+import dataset
 import os
 import errno
 import time
 import torch.utils.data
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
+from datetime import datetime
+
 
 if __name__ == '__main__':
     args = get_args()
@@ -46,12 +50,16 @@ if __name__ == '__main__':
             valid_batch_sampler = torch.utils.data.BatchSampler(
                 torch.utils.data.RandomSampler(dataset_valid), batch_size=args.batch_size, drop_last=True)
 
-            training_loader = torch.utils.data.DataLoader(dataset_train, batch_sampler=training_batch_sampler)
-            validation_loader = torch.utils.data.DataLoader(dataset_valid, batch_sampler=valid_batch_sampler)
+            training_loader = torch.utils.data.DataLoader(dataset_train, batch_sampler=training_batch_sampler,
+                                                          collate_fn=dataset.collate_fn)
+            validation_loader = torch.utils.data.DataLoader(dataset_valid, batch_sampler=valid_batch_sampler,
+                                                            collate_fn=dataset.collate_fn)
 
             print('Creating Model')
             kwargs = {"tau_l": args.tl, "tau_h": args.th}
-            model = fasterrcnn_resnet50_fpn(num_classes=dataset_train.num_classes()+1, weights_backbone=ResNet50_Weights.DEFAULT, **kwargs)
+            model = fasterrcnn_resnet50_fpn(num_classes=dataset_train.num_classes()+1,
+                                            weights_backbone=ResNet50_Weights.DEFAULT,
+                                            **kwargs)
             model.cuda()
             print('Model Created')
 
@@ -61,10 +69,25 @@ if __name__ == '__main__':
 
             print("Start training")
             start_time = time.time()
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            best_score = 0.0
+
             for epoch in range(args.epochs):
                 print(f'EPOCH: {epoch + 1}')
 
                 train_one_epoch_detection(model, optimizer, training_loader, args)
+
+                # Validation at the end of each epoch
+                score = validation(model, validation_loader)
+
+                # If score is better than the saved one, update it and save the model
+                if math.isfinite(score) and score > best_score:
+                    print("New best")
+                    best_score = score
+                    model_path = f'model_{timestamp}_{epoch}'
+                    torch.save(model.state_dict(), model_path)
+
+                print(f'LOSS valid {score}')
 
         else:
             print('Test phase for Detection task')
