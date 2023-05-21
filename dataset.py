@@ -38,7 +38,7 @@ class ResizeAndScale:
         x, y = image.size
 
         # draw_boxes(np.array(image), target, "prima")
-
+        # TODO: Rendere la dimensione una variabile impostabile da chiamata dalla linea di comando
         # Resize the image
         targetSize = (720, 720)
         x_scale = targetSize[0] / x
@@ -58,7 +58,6 @@ class ResizeAndScale:
 
 class CheckBoxes:
     def __call__(self, image, target):
-        # TODO: Rendere la dimensione una variabile impostabile da chiamata dalla linea di comando
         w = 720
         h = 720
 

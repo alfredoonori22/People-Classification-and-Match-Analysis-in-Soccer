@@ -61,7 +61,6 @@ if __name__ == '__main__':
                                             weights_backbone=ResNet50_Weights.DEFAULT,
                                             **kwargs)
             model.cuda()
-            print('Model Created')
 
             # Optimizer
             params = [p for p in model.parameters() if p.requires_grad]
@@ -69,7 +68,7 @@ if __name__ == '__main__':
 
             print("Start training")
             start_time = time.time()
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            timestamp = datetime.now().strftime('%d-%m_%H:%M')
             best_score = 0.0
 
             for epoch in range(args.epochs):
@@ -77,15 +76,16 @@ if __name__ == '__main__':
 
                 train_one_epoch_detection(model, optimizer, training_loader, args)
 
+                print("Entering validation")
                 # Validation at the end of each epoch
-                score = validation(model, validation_loader)
+                score = validation(model, validation_loader, args)
 
                 # If score is better than the saved one, update it and save the model
                 if math.isfinite(score) and score > best_score:
                     print("New best")
                     best_score = score
-                    model_path = f'model_{timestamp}_{epoch}'
-                    torch.save(model.state_dict(), model_path)
+                    model_path = f'model/{timestamp}__{epoch}__{round(float(score),2)}'
+                    # torch.save(model.state_dict(), model_path)
 
                 print(f'LOSS valid {score}')
 
