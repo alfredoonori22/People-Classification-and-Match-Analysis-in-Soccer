@@ -5,9 +5,7 @@ from tqdm import tqdm
 from SoccerNet.utils import getListGames
 from PIL import Image
 import torch.utils.data
-from torchvision.transforms import functional
-import cv2
-import numpy as np
+from torchvision.transforms import functional, Resize
 
 CLASS_DICT = {'Ball': 1,
               'Player team left': 2,
@@ -18,14 +16,15 @@ CLASS_DICT = {'Ball': 1,
               'Side referee': 7,
               'Staff members': 8
               }
+
 """
-def draw_boxes(image, target, suffix):
+def draw_boxes(image, target):
     for i, box in enumerate(target['boxes']):
         # changed color and width to make it visible
         cv2.rectangle(image,
                       (int(np.round(box[0])), int(np.round(box[1]))), (int(np.round((box[2]))), int(np.round(box[3]))),
                       (255, 0, 0), 1)
-    cv2.imwrite(f"/mnt/beegfs/homes/aonori/SoccerNet/image_{suffix}.png", image)
+    cv2.imwrite(f"/mnt/beegfs/homes/aonori/SoccerNet/image.png", image)
 """
 
 
@@ -33,33 +32,21 @@ def collate_fn(batch):
     return tuple(zip(*batch))
 
 
-class ResizeAndScale:
+class ResizeImg:
     def __call__(self, image, target):
-        x, y = image.size
-
-        # draw_boxes(np.array(image), target, "prima")
         # TODO: Rendere la dimensione una variabile impostabile da chiamata dalla linea di comando
         # Resize the image
-        targetSize = (720, 720)
-        x_scale = targetSize[0] / x
-        y_scale = targetSize[1] / y
-        image = cv2.resize(np.array(image), targetSize)
-
-        # Scale the bboxes
-        boxes = target['boxes']
-        boxes[:, 0::2] = boxes[:, 0::2] * x_scale
-        boxes[:, 1::2] = boxes[:, 1::2] * y_scale
-        target['boxes'] = boxes
-
-        # draw_boxes(np.array(image), target, "dopo")
+        targetSize = (1920, 1080)
+        resize = Resize(targetSize)
+        image = resize(image)
 
         return image, target
 
 
 class CheckBoxes:
     def __call__(self, image, target):
-        w = 720
-        h = 720
+        w = 1920
+        h = 1080
 
         boxes = target['boxes']
         boxes[:, 0::2].clamp_(min=0, max=w)
@@ -87,8 +74,8 @@ class SNDetection(torch.utils.data.Dataset):
         self.path = path
 
         # t will be the list containg all the pre-process operation, Resize and CheckBoxes are always present here
-        t = [ResizeAndScale(), CheckBoxes()]
-        # if there are other operation the are appended
+        t = [ResizeImg(), CheckBoxes()]
+        # if there are other operation they are appended
         if transform is not None:
             t.append(transform)
         # Compose make the list a callable
@@ -125,6 +112,8 @@ class SNDetection(torch.utils.data.Dataset):
 
                 boxes = list()
                 labels = list()
+                areas = list()
+                iscrowds = list()
 
                 # List containg the bboxes, its value changes depending on the key (k, action/replay)
                 iterate = list()
@@ -134,10 +123,23 @@ class SNDetection(torch.utils.data.Dataset):
                     # Image ID saved as a float to store information about its replay number
                     # E.g. 0_0 is the first replay of action 0, and it's saved as a float --> 0.1
                     image_id = f'{k.split(".")[0].split("_")[0]}.{int(k.split(".")[0].split("_")[1]) + 1}'
+
+                    # Get the original Image size
+                    x = self.data[i]['replays'][k]['imageMetadata']['width']
+                    y = self.data[i]['replays'][k]['imageMetadata']['height']
                 else:
                     # Image Id of action 0 is simply 0.0
                     iterate.extend(self.data[i]['actions'][k]['bboxes'])
                     image_id = k.split('.')[0]
+
+                    # Get the original Image size
+                    x = self.data[i]['actions'][k]['imageMetadata']['width']
+                    y = self.data[i]['actions'][k]['imageMetadata']['height']
+
+                # Get the target size to know the scale factors
+                targetSize = (1920, 1080)
+                x_scale = targetSize[0] / x
+                y_scale = targetSize[1] / y
 
                 for b in iterate:
                     # Loop through the bboxes of each image
@@ -157,9 +159,22 @@ class SNDetection(torch.utils.data.Dataset):
                     self.labels.append(CLASS_DICT[b['class']])
                     labels.append(CLASS_DICT[b['class']])
 
-                tmp_dict = {'boxes': torch.tensor(boxes),
+                    # Calculate bbox area
+                    a = (b['points']['x2'] - b['points']['x1']) * (b['points']['y2'] - b['points']['y1'])
+                    areas.append(a)
+                    iscrowds.append(0)
+
+                # Scale the bboxes
+                boxes = torch.tensor(boxes)
+                boxes[:, 0::2] = boxes[:, 0::2] * x_scale
+                boxes[:, 1::2] = boxes[:, 1::2] * y_scale
+
+                tmp_dict = {'boxes': boxes,
                             'labels': torch.tensor(labels),
-                            'image_id': torch.tensor(float(image_id))}
+                            'image_id': torch.tensor(float(image_id)),
+                            'area': torch.tensor(areas),
+                            'iscrowd': torch.tensor(iscrowds)
+                            }
 
                 self.targets.append(tmp_dict)
 

@@ -19,10 +19,8 @@ def train_one_epoch_detection(model, optimizer, training_loader, args):
         loss_dict = model(images, targets)
         losses = sum(loss for loss in loss_dict.values())
 
-        # TODO: Capire perchè losses ogni tanto esplode (nan) e poi rimane nan, sembrerebbe risolto con il gradient clip
-        if not math.isfinite(losses):
-            tqdm.write(f"Loss is {losses}, the Image ID was {targets[0]['image_id']}")
-            continue
+        images = list(image.cpu() for image in images)
+        targets = [{k: v.cpu() for k, v in t.items()} for t in targets]
 
         # Zero gradients for every batch
         optimizer.zero_grad()
@@ -57,6 +55,7 @@ def validation(model, validation_loader, args):
 
             # Predict the output
             outputs = model(images)
+            images = list(image.cpu() for image in images)
             outputs = [{k: v.cpu() for k, v in t.items()} for t in outputs]
 
             # TODO: Si può probabilmente fare meglio
