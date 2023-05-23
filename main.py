@@ -59,7 +59,8 @@ if __name__ == '__main__':
 
             print('Creating Model')
             kwargs = {"tau_l": args.tl, "tau_h": args.th}
-            model = fasterrcnn_resnet50_fpn(weights=FasterRCNN_ResNet50_FPN_Weights.DEFAULT)
+            model = fasterrcnn_resnet50_fpn(weights=FasterRCNN_ResNet50_FPN_Weights.DEFAULT,
+                                            trainable_backbone_layers=0, **kwargs)
             # get number of input features for the classifier
             in_features = model.roi_heads.box_predictor.cls_score.in_features
             # replace the pre-trained head with a new one
@@ -70,15 +71,24 @@ if __name__ == '__main__':
             params = [p for p in model.parameters() if p.requires_grad]
             optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
+            # Resuming
+            if args.resume:
+                print("Resuming")
+                checkpoint = torch.load("model/checkpoint_detection.pt")
+                model.load_state_dict(checkpoint['model_state_dict'])
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                args.start_epoch = checkpoint['epoch'] + 1
+                loss = checkpoint['loss']
+
             print("Start training")
             start_time = time.time()
             timestamp = datetime.now().strftime('%d-%m_%H:%M')
             best_score = 0.0
 
-            for epoch in range(args.epochs):
+            for epoch in range(args.start_epoch, args.epochs):
                 print(f'EPOCH: {epoch + 1}')
 
-                train_one_epoch_detection(model, optimizer, training_loader, args)
+                train_one_epoch_detection(model, optimizer, training_loader, epoch, args)
 
                 print("Entering validation")
                 # Validation at the end of each epoch
@@ -89,7 +99,7 @@ if __name__ == '__main__':
                     print("New best")
                     best_score = score
                     model_path = f'model/{timestamp}__{epoch}__{round(float(score),2)}'
-                    # torch.save(model.state_dict(), model_path)
+                    torch.save(model.state_dict(), model_path)
 
                 print(f'LOSS valid {score}')
 

@@ -18,6 +18,8 @@ def get_args():
     parser.add_argument('--pretrained', action='store_true', default=True, help='use pretrained backbone')
     parser.add_argument('--tl', default=0.9, type=float, help='Value for tau_low (default: 0.9')
     parser.add_argument('--th', default=1., type=float, help='Value for tau_high (default: 1.)')
+    parser.add_argument('--resume', type=str, default=False, help='Resume from checkpoint')
+    parser.add_argument('--start_epoch', type=int, default=0, help='Start epoch')
 
     # Optimizer
     parser.add_argument('--momentum', default=0.9, type=float, help='momentum')

@@ -6,7 +6,6 @@ import torch.utils.data
 from PIL import Image
 from SoccerNet.utils import getListGames
 from torchvision.transforms import functional, Resize
-from tqdm import tqdm
 
 CLASS_DICT = {'Ball': 1,
               'Player team left': 2,
@@ -77,10 +76,7 @@ class SNDetection(torch.utils.data.Dataset):
         if tiny is not None:
             self.list_games = self.list_games[:tiny]
 
-        self.data = list()
-        for game in tqdm(self.list_games):
-            self.data.append(json.load(open(os.path.join(self.path, game, "Labels-v3.json"))))
-
+        self.data = list(json.load(open(os.path.join(self.path, f"Labels-{split}.json"))))
         self.targets = list()
         self.labels = list()
 

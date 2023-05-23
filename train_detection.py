@@ -1,19 +1,6 @@
-import sys
-
 import torch
 import torchvision
 from tqdm import tqdm
-
-"""
-def draw_boxes(image, target):
-    image = np.array(transforms.ToPILImage()(image).convert('RGB'))
-    for i, box in enumerate(target['boxes']):
-        # changed color and width to make it visible
-        cv2.rectangle(image,
-                      (int(np.round(box[0])), int(np.round(box[1]))), (int(np.round((box[2]))), int(np.round(box[3]))),
-                      (255, 0, 0), 1)
-    cv2.imwrite(f"/mnt/beegfs/homes/aonori/SoccerNet/image.png", image)
-"""
 
 
 def apply_nms(orig_prediction, iou_thresh=0.3):
@@ -27,13 +14,13 @@ def apply_nms(orig_prediction, iou_thresh=0.3):
     return final_prediction
 
 
-def train_one_epoch_detection(model, optimizer, training_loader, args):
+def train_one_epoch_detection(model, optimizer, training_loader, epoch, args):
     running_loss = 0.0
 
     # Make sure gradient tracking is on, and do a pass over the data
     model.train()
 
-    for i, (images, targets) in enumerate(tqdm(training_loader, file=sys.stdout)):
+    for i, (images, targets) in enumerate(tqdm(training_loader)):
         # Every data instance is an image + target pair
         images = list(image.cuda() for image in images)
         targets = [{k: v.cuda() for k, v in t.items()} for t in targets]
@@ -58,9 +45,15 @@ def train_one_epoch_detection(model, optimizer, training_loader, args):
         running_loss += losses.item()
 
         # Print loss every 1000 batches
-        if i % 100 == 99:
-            last_loss = running_loss / 100  # loss per batch
+        if i % 1000 == 999:
+            last_loss = running_loss / 1000  # loss per batch
             tqdm.write(f'  batch {i + 1} loss: {last_loss}')
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': running_loss,
+            }, "model/checkpoint_detection.pt")
             running_loss = 0.0
 
 
@@ -71,7 +64,7 @@ def validation(model, validation_loader, args):
         score = 0.0
         # Number of batches in validation set
         i = 0
-        for i, (images, targets) in enumerate(tqdm(validation_loader, file=sys.stdout)):
+        for i, (images, targets) in enumerate(tqdm(validation_loader)):
             # Singol batch's score
             s_batch = 0.0
             images = list(image.cuda() for image in images)
@@ -90,12 +83,12 @@ def validation(model, validation_loader, args):
 
                 if outputs[k]["scores"].numel() != 0:
                     s_img = outputs[k]["scores"].mean()
-                else:
+                # else:
                     # TODO: Capire peché (solo in alcune epoche) in validation inizia a skippare un sacco di img
-                    tqdm.write("skippata")
+                    # tqdm.write("skippata")
 
                 # Stampa di debug
-                print(outputs[k]["scores"].numel())
+                # print(outputs[k]["scores"].numel())
 
                 s_batch = s_batch + s_img
 
