@@ -1,7 +1,30 @@
-import math
 import sys
+
 import torch
+import torchvision
 from tqdm import tqdm
+
+"""
+def draw_boxes(image, target):
+    image = np.array(transforms.ToPILImage()(image).convert('RGB'))
+    for i, box in enumerate(target['boxes']):
+        # changed color and width to make it visible
+        cv2.rectangle(image,
+                      (int(np.round(box[0])), int(np.round(box[1]))), (int(np.round((box[2]))), int(np.round(box[3]))),
+                      (255, 0, 0), 1)
+    cv2.imwrite(f"/mnt/beegfs/homes/aonori/SoccerNet/image.png", image)
+"""
+
+
+def apply_nms(orig_prediction, iou_thresh=0.3):
+    # torchvision returns the indices of the bboxes to keep
+    keep = torchvision.ops.nms(orig_prediction['boxes'], orig_prediction['scores'], iou_thresh)
+    final_prediction = orig_prediction
+    final_prediction['boxes'] = final_prediction['boxes'][keep]
+    final_prediction['scores'] = final_prediction['scores'][keep]
+    final_prediction['labels'] = final_prediction['labels'][keep]
+
+    return final_prediction
 
 
 def train_one_epoch_detection(model, optimizer, training_loader, args):
@@ -58,14 +81,21 @@ def validation(model, validation_loader, args):
             images = list(image.cpu() for image in images)
             outputs = [{k: v.cpu() for k, v in t.items()} for t in outputs]
 
+            # Non Max Suppression to discard intersected superflous bboxes
+            outputs = [apply_nms(o, iou_thresh=0.2) for o in outputs]
+
             # TODO: Si può probabilmente fare meglio
             for k, _ in enumerate(outputs):
                 s_img = 0.0
+
                 if outputs[k]["scores"].numel() != 0:
                     s_img = outputs[k]["scores"].mean()
                 else:
                     # TODO: Capire peché (solo in alcune epoche) in validation inizia a skippare un sacco di img
                     tqdm.write("skippata")
+
+                # Stampa di debug
+                print(outputs[k]["scores"].numel())
 
                 s_batch = s_batch + s_img
 

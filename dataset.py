@@ -1,11 +1,12 @@
-import torch.utils.data
 import json
 import os
-from tqdm import tqdm
-from SoccerNet.utils import getListGames
-from PIL import Image
+
 import torch.utils.data
+import torch.utils.data
+from PIL import Image
+from SoccerNet.utils import getListGames
 from torchvision.transforms import functional, Resize
+from tqdm import tqdm
 
 CLASS_DICT = {'Ball': 1,
               'Player team left': 2,
@@ -16,16 +17,6 @@ CLASS_DICT = {'Ball': 1,
               'Side referee': 7,
               'Staff members': 8
               }
-
-"""
-def draw_boxes(image, target):
-    for i, box in enumerate(target['boxes']):
-        # changed color and width to make it visible
-        cv2.rectangle(image,
-                      (int(np.round(box[0])), int(np.round(box[1]))), (int(np.round((box[2]))), int(np.round(box[3]))),
-                      (255, 0, 0), 1)
-    cv2.imwrite(f"/mnt/beegfs/homes/aonori/SoccerNet/image.png", image)
-"""
 
 
 def collate_fn(batch):
@@ -194,4 +185,6 @@ class SNDetection(torch.utils.data.Dataset):
         # TODO : Operazioni di preprocessing, per ora solo resize e clamp delle bbox
         image, target = self.transforms(image, target)
 
-        return functional.to_tensor(image), target
+        image = functional.to_tensor(image)
+
+        return image, target

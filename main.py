@@ -1,16 +1,18 @@
-import math
-from torchvision.models import ResNet50_Weights
-from argument_parser import get_args
-from train_detection import train_one_epoch_detection, validation
-from dataset import SNDetection
-import dataset
-import os
 import errno
+import math
+import os
 import time
-import torch.utils.data
-from torchvision.models.detection import fasterrcnn_resnet50_fpn
 from datetime import datetime
 
+import torch.utils.data
+import torchvision.models.detection.faster_rcnn
+from torchvision.models.detection import FasterRCNN_ResNet50_FPN_Weights
+from torchvision.models.detection import fasterrcnn_resnet50_fpn
+
+import dataset
+from argument_parser import get_args
+from dataset import SNDetection
+from train_detection import train_one_epoch_detection, validation
 
 if __name__ == '__main__':
     args = get_args()
@@ -57,9 +59,11 @@ if __name__ == '__main__':
 
             print('Creating Model')
             kwargs = {"tau_l": args.tl, "tau_h": args.th}
-            model = fasterrcnn_resnet50_fpn(num_classes=dataset_train.num_classes()+1,
-                                            weights_backbone=ResNet50_Weights.DEFAULT,
-                                            **kwargs)
+            model = fasterrcnn_resnet50_fpn(weights=FasterRCNN_ResNet50_FPN_Weights.DEFAULT)
+            # get number of input features for the classifier
+            in_features = model.roi_heads.box_predictor.cls_score.in_features
+            # replace the pre-trained head with a new one
+            model.roi_heads.box_predictor = torchvision.models.detection.faster_rcnn.FastRCNNPredictor(in_features, dataset_train.num_classes() + 1)
             model.cuda()
 
             # Optimizer
