@@ -102,7 +102,6 @@ if __name__ == '__main__':
                     torch.save(model.state_dict(), model_path)
 
                 print(f'LOSS valid {score}')
-
         else:
             print('Test phase for Detection task')
             # chiamata a funzione test da definire

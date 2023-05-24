@@ -44,7 +44,7 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch, args):
         # Gather data
         running_loss += losses.item()
 
-        # Print loss every 1000 batches
+        # Print loss every 100 batches
         if i % 1000 == 999:
             last_loss = running_loss / 1000  # loss per batch
             tqdm.write(f'  batch {i + 1} loss: {last_loss}')
@@ -76,6 +76,7 @@ def validation(model, validation_loader, args):
 
             # Non Max Suppression to discard intersected superflous bboxes
             outputs = [apply_nms(o, iou_thresh=0.2) for o in outputs]
+
 
             # TODO: Si può probabilmente fare meglio
             for k, _ in enumerate(outputs):
