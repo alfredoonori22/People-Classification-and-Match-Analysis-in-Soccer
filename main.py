@@ -1,32 +1,19 @@
-import errno
 import math
-import os
 import time
 from datetime import datetime
 
 import torch.utils.data
-import torchvision.models.detection.faster_rcnn
-from torchvision.models.detection import FasterRCNN_ResNet50_FPN_Weights
-from torchvision.models.detection import fasterrcnn_resnet50_fpn
+from torchvision.models.detection import FasterRCNN_ResNet50_FPN_Weights, fasterrcnn_resnet50_fpn, faster_rcnn
 
-import dataset
+import transform as T
 from argument_parser import get_args
-from dataset import SNDetection
+from dataset import SNDetection, collate_fn
 from train_detection import train_one_epoch_detection, validation
 
 if __name__ == '__main__':
     args = get_args()
     print('These are the parameters from the command line: ')
     print(args)
-
-    if args.output_dir:
-        # Try to create the output directory, if it already exists the code does nothing
-        # else it raises an error
-        try:
-            os.makedirs(args.output_dir)
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise
 
     if torch.cuda.is_available():
         device = torch.device('cuda')
@@ -43,8 +30,8 @@ if __name__ == '__main__':
             # Data Loading Code
             print('Loading Data for Detection Training')
 
-            dataset_train = SNDetection(args.data_path, split='train', tiny=args.tiny)
-            dataset_valid = SNDetection(args.data_path, split='valid', tiny=args.tiny)
+            dataset_train = SNDetection(args, split='train', transform=T.get_transform("train"))
+            dataset_valid = SNDetection(args, split='valid', transform=T.get_transform("valid"))
 
             # Create data loaders for our datasets
             training_batch_sampler = torch.utils.data.BatchSampler(
@@ -53,9 +40,9 @@ if __name__ == '__main__':
                 torch.utils.data.RandomSampler(dataset_valid), batch_size=args.batch_size, drop_last=True)
 
             training_loader = torch.utils.data.DataLoader(dataset_train, batch_sampler=training_batch_sampler,
-                                                          collate_fn=dataset.collate_fn)
+                                                          collate_fn=collate_fn)
             validation_loader = torch.utils.data.DataLoader(dataset_valid, batch_sampler=valid_batch_sampler,
-                                                            collate_fn=dataset.collate_fn)
+                                                            collate_fn=collate_fn)
 
             print('Creating Model')
             kwargs = {"tau_l": args.tl, "tau_h": args.th}
@@ -64,7 +51,7 @@ if __name__ == '__main__':
             # get number of input features for the classifier
             in_features = model.roi_heads.box_predictor.cls_score.in_features
             # replace the pre-trained head with a new one
-            model.roi_heads.box_predictor = torchvision.models.detection.faster_rcnn.FastRCNNPredictor(in_features, dataset_train.num_classes() + 1)
+            model.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, dataset_train.num_classes() + 1)
             model.cuda()
 
             # Optimizer

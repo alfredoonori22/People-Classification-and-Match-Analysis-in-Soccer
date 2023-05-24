@@ -1,11 +1,13 @@
+import ast
 import json
 import os
 
 import torch.utils.data
-import torch.utils.data
 from PIL import Image
 from SoccerNet.utils import getListGames
-from torchvision.transforms import functional, Resize
+from tqdm import tqdm
+
+import transform as T
 
 CLASS_DICT = {'Ball': 1,
               'Player team left': 2,
@@ -22,59 +24,29 @@ def collate_fn(batch):
     return tuple(zip(*batch))
 
 
-class ResizeImg:
-    def __call__(self, image, target):
-        # TODO: Rendere la dimensione una variabile impostabile da chiamata dalla linea di comando
-        # Resize the image
-        targetSize = (1920, 1080)
-        resize = Resize(targetSize)
-        image = resize(image)
-
-        return image, target
-
-
-class CheckBoxes:
-    def __call__(self, image, target):
-        w = 1920
-        h = 1080
-
-        boxes = target['boxes']
-        boxes[:, 0::2].clamp_(min=0, max=w)
-        boxes[:, 1::2].clamp_(min=0, max=h)
-
-        target['boxes'] = boxes
-
-        return image, target
-
-
-class Compose(object):
-    def __init__(self, transforms):
-        self.transforms = transforms
-
-    def __call__(self, image, target):
-        for t in self.transforms:
-            image, target = t(image, target)
-        return image, target
-
-
 # Building the dataset
 class SNDetection(torch.utils.data.Dataset):
-    def __init__(self, path, split, tiny, transform=None):
+    def __init__(self, args, split, transform=None):
 
-        self.path = path
+        self.path = args.data_path
+
+        self.size = ast.literal_eval(args.size)
 
         # t will be the list containg all the pre-process operation, Resize and CheckBoxes are always present here
-        t = [ResizeImg(), CheckBoxes()]
+        t = [T.ResizeImg(), T.CheckBoxes()]
         # if there are other operation they are appended
         if transform is not None:
-            t.append(transform)
+            t.extend(transform)
         # Compose make the list a callable
-        self.transforms = Compose(t)
+        self.transforms = T.Compose(t)
 
         # Get the list of the selected subset of games
         self.list_games = getListGames(split, task="frames")
-        if tiny is not None:
-            self.list_games = self.list_games[:tiny]
+        if args.tiny is not None:
+            # Dimiuiamo dimensione validation per debug
+            if split == "valid":
+                args.tiny = args.tiny // 5
+            self.list_games = self.list_games[:args.tiny]
 
         self.data = list(json.load(open(os.path.join(self.path, f"Labels-{split}.json"))))
         self.targets = list()
@@ -86,7 +58,7 @@ class SNDetection(torch.utils.data.Dataset):
         # Variable that stores the full name of each image (ex, 'path/0.png')
         self.full_keys = list()
 
-        for i, game in enumerate(self.list_games):
+        for i, game in enumerate(tqdm(self.list_games)):
             # Loop through the game
 
             self.keys = list(self.data[i]['actions'].keys())  # List of images of each game (actions)
@@ -124,7 +96,7 @@ class SNDetection(torch.utils.data.Dataset):
                     y = self.data[i]['actions'][k]['imageMetadata']['height']
 
                 # Get the target size to know the scale factors
-                targetSize = (1920, 1080)
+                targetSize = self.size
                 x_scale = targetSize[0] / x
                 y_scale = targetSize[1] / y
 
@@ -176,11 +148,8 @@ class SNDetection(torch.utils.data.Dataset):
     def __getitem__(self, idx):
 
         image = Image.open(self.full_keys[idx]).convert('RGB')
-
         target = self.targets[idx]
-        # TODO : Operazioni di preprocessing, per ora solo resize e clamp delle bbox
-        image, target = self.transforms(image, target)
 
-        image = functional.to_tensor(image)
+        image, target = self.transforms(image, target, self.size)
 
         return image, target

@@ -1,3 +1,5 @@
+import sys
+
 import torch
 import torchvision
 from tqdm import tqdm
@@ -20,7 +22,7 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch, args):
     # Make sure gradient tracking is on, and do a pass over the data
     model.train()
 
-    for i, (images, targets) in enumerate(tqdm(training_loader)):
+    for i, (images, targets) in enumerate(tqdm(training_loader, file=sys.stdout)):
         # Every data instance is an image + target pair
         images = list(image.cuda() for image in images)
         targets = [{k: v.cuda() for k, v in t.items()} for t in targets]
@@ -29,6 +31,7 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch, args):
         loss_dict = model(images, targets)
         losses = sum(loss for loss in loss_dict.values())
 
+        # TODO: Verificare che serva
         images = list(image.cpu() for image in images)
         targets = [{k: v.cpu() for k, v in t.items()} for t in targets]
 
@@ -45,7 +48,7 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch, args):
         running_loss += losses.item()
 
         # Print loss every 1000 batches
-        if i % 1000 == 999:
+        if i % 500 == 499:
             last_loss = running_loss / 1000  # loss per batch
             tqdm.write(f'  batch {i + 1} loss: {last_loss}')
             torch.save({
@@ -64,7 +67,7 @@ def validation(model, validation_loader, args):
         score = 0.0
         # Number of batches in validation set
         i = 0
-        for i, (images, targets) in enumerate(tqdm(validation_loader)):
+        for i, (images, targets) in enumerate(tqdm(validation_loader, file=sys.stdout)):
             # Singol batch's score
             s_batch = 0.0
             images = list(image.cuda() for image in images)

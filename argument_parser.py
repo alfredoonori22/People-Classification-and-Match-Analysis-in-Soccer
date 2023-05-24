@@ -8,11 +8,11 @@ def get_args():
     # Dataset
     parser.add_argument('--data-path', default='/mnt/beegfs/work/cvcs_2022_group20/SoccerNet-v3', help='dataset')
     parser.add_argument('--split', type=str, default='train', help='train or test')
-    parser.add_argument('--output-dir', type=str, default='', help='directory where to save results, empty if no saving')
     parser.add_argument('--task', type=str, help='detection, geometry or retrieval')
     parser.add_argument('--epochs', default=2, type=int)
     parser.add_argument('-b', '--batch-size', default=4, type=int)
     parser.add_argument('--tiny', required=False, type=int, default=None, help='Select a subset of x games')
+    parser.add_argument('--size', type=str, default="(1920,1080)", help='Target dimension for image pre-processing')
 
     # Model
     parser.add_argument('--pretrained', action='store_true', default=True, help='use pretrained backbone')
