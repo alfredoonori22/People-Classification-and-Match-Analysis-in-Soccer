@@ -1,8 +1,5 @@
-import sys
-
 import torch
 import torchvision
-from tqdm import tqdm
 
 
 def apply_nms(orig_prediction, iou_thresh=0.3):
@@ -18,11 +15,12 @@ def apply_nms(orig_prediction, iou_thresh=0.3):
 
 def train_one_epoch_detection(model, optimizer, training_loader, epoch, args):
     running_loss = 0.0
+    last_loss = 0.0
 
     # Make sure gradient tracking is on, and do a pass over the data
     model.train()
 
-    for i, (images, targets) in enumerate(tqdm(training_loader, file=sys.stdout)):
+    for i, (images, targets) in enumerate(training_loader):
         # Every data instance is an image + target pair
         images = list(image.cuda() for image in images)
         targets = [{k: v.cuda() for k, v in t.items()} for t in targets]
@@ -31,7 +29,7 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch, args):
         loss_dict = model(images, targets)
         losses = sum(loss for loss in loss_dict.values())
 
-        # TODO: Verificare che serva
+        # TODO: Verificare che serva fare il .cpu
         images = list(image.cpu() for image in images)
         targets = [{k: v.cpu() for k, v in t.items()} for t in targets]
 
@@ -48,9 +46,9 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch, args):
         running_loss += losses.item()
 
         # Print loss every 1000 batches
-        if i % 500 == 499:
+        if i % 1000 == 999:
             last_loss = running_loss / 1000  # loss per batch
-            tqdm.write(f'  batch {i + 1} loss: {last_loss}')
+            print(f'  batch {i + 1} loss: {last_loss}')
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
@@ -58,6 +56,8 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch, args):
                 'loss': running_loss,
             }, "model/checkpoint_detection.pt")
             running_loss = 0.0
+
+    return last_loss
 
 
 def validation(model, validation_loader, args):
@@ -67,7 +67,7 @@ def validation(model, validation_loader, args):
         score = 0.0
         # Number of batches in validation set
         i = 0
-        for i, (images, targets) in enumerate(tqdm(validation_loader, file=sys.stdout)):
+        for i, (images, targets) in enumerate(validation_loader):
             # Singol batch's score
             s_batch = 0.0
             images = list(image.cuda() for image in images)
@@ -89,9 +89,6 @@ def validation(model, validation_loader, args):
                 # else:
                     # TODO: Capire peché (solo in alcune epoche) in validation inizia a skippare un sacco di img
                     # tqdm.write("skippata")
-
-                # Stampa di debug
-                # print(outputs[k]["scores"].numel())
 
                 s_batch = s_batch + s_img
 

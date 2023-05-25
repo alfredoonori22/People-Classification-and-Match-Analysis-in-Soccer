@@ -5,7 +5,6 @@ import os
 import torch.utils.data
 from PIL import Image
 from SoccerNet.utils import getListGames
-from tqdm import tqdm
 
 import transform as T
 
@@ -58,7 +57,7 @@ class SNDetection(torch.utils.data.Dataset):
         # Variable that stores the full name of each image (ex, 'path/0.png')
         self.full_keys = list()
 
-        for i, game in enumerate(tqdm(self.list_games)):
+        for i, game in enumerate(self.list_games):
             # Loop through the game
 
             self.keys = list(self.data[i]['actions'].keys())  # List of images of each game (actions)
