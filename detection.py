@@ -171,5 +171,5 @@ if __name__ == '__main__':
         print(f'Test mAP: {score}')
 
     else:
-        print('ERROR: invalid split given')
+        print('ERROR: invalid split')
         exit(-1)
