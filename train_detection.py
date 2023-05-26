@@ -21,6 +21,7 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch):
     # Make sure gradient tracking is on, and do a pass over the data
     model.train()
 
+    # enumerate(tqdm(training_loader, file=sys.stdout))            enumerate(training_loader)
     for i, (images, targets) in enumerate(training_loader):
         # Every data instance is an image + target pair
         images = list(image.cuda() for image in images)
@@ -61,7 +62,7 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch):
     return last_loss
 
 
-def validation(model, validation_loader):
+def evaluate(model, validation_loader):
     model.eval()
     with torch.inference_mode():
 

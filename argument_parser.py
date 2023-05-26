@@ -8,7 +8,6 @@ def get_args():
     # Dataset
     parser.add_argument('--data-path', default='/mnt/beegfs/work/cvcs_2022_group20/SoccerNet-v3', help='dataset')
     parser.add_argument('--split', type=str, default='train', help='train or test')
-    parser.add_argument('--task', type=str, help='detection, geometry or retrieval')
     parser.add_argument('--epochs', default=300, type=int)
     parser.add_argument('-b', '--batch-size', default=4, type=int)
     parser.add_argument('--tiny', required=False, type=int, default=None, help='Select a subset of x games')
@@ -22,7 +21,7 @@ def get_args():
     # Training
     parser.add_argument('--resume', type=str, default=False, help='Resume from checkpoint')
     parser.add_argument('--start_epoch', type=int, default=0, help='Start epoch')
-    parser.add_argument('--patience', type=int, default=10, help='Number of epochs before early stopping')
+    parser.add_argument('--patience', type=int, default=5, help='Number of epochs before early stopping')
 
     # Optimizer
     parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
