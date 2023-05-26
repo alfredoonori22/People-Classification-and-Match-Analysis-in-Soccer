@@ -87,7 +87,7 @@ if __name__ == '__main__':
             for epoch in range(args.start_epoch, args.epochs):
                 print(f'EPOCH: {epoch + 1}')
 
-                loss = train_one_epoch_detection(model, optimizer, training_loader, epoch, args)
+                loss = train_one_epoch_detection(model, optimizer, training_loader, epoch)
 
                 # Save the model at the end of the epoch
                 torch.save({
@@ -99,8 +99,8 @@ if __name__ == '__main__':
 
                 print("Entering validation")
                 # Validation at the end of each epoch
-                score = validation(model, validation_loader, args)
-                score = round(score*100, 2)
+                score = validation(model, validation_loader)
+                score = round(float(score*100), 2)
 
                 print(f'LOSS valid {score}')
 

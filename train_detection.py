@@ -1,5 +1,6 @@
 import torch
 import torchvision
+from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
 
 def apply_nms(orig_prediction, iou_thresh=0.3):
@@ -13,7 +14,7 @@ def apply_nms(orig_prediction, iou_thresh=0.3):
     return final_prediction
 
 
-def train_one_epoch_detection(model, optimizer, training_loader, epoch, args):
+def train_one_epoch_detection(model, optimizer, training_loader, epoch):
     running_loss = 0.0
     last_loss = 0.0
 
@@ -60,16 +61,18 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch, args):
     return last_loss
 
 
-def validation(model, validation_loader, args):
+def validation(model, validation_loader):
     model.eval()
     with torch.inference_mode():
+
         # Global validation score
         score = 0.0
+
         # Number of batches in validation set
         i = 0
+
         for i, (images, targets) in enumerate(validation_loader):
             # Singol batch's score
-            s_batch = 0.0
             images = list(image.cuda() for image in images)
 
             # Predict the output
@@ -80,18 +83,12 @@ def validation(model, validation_loader, args):
             # Non Max Suppression to discard intersected superflous bboxes
             outputs = [apply_nms(o, iou_thresh=0.2) for o in outputs]
 
-            # TODO: Si può probabilmente fare meglio
-            for k, _ in enumerate(outputs):
-                s_img = 0.0
+            metric = MeanAveragePrecision()
+            metric.update(outputs, targets)
+            res_b = metric.compute()
 
-                if outputs[k]["scores"].numel() != 0:
-                    s_img = outputs[k]["scores"].mean()
-                # else:
-                    # TODO: Capire peché (solo in alcune epoche) in validation inizia a skippare un sacco di img
-                    # tqdm.write("skippata")
+            score = score + float(res_b['map'])
 
-                s_batch = s_batch + s_img
+        score = score / (i+1)
 
-            score = score + s_batch / args.batch_size
-
-        return score / (i + 1)
+    return score
