@@ -8,7 +8,6 @@ def get_args():
     # Dataset
     parser.add_argument('--data-path', default='/mnt/beegfs/work/cvcs_2022_group20/SoccerNet-v3', help='dataset')
     parser.add_argument('--split', type=str, default='train', help='train or test')
-    parser.add_argument('--task', type=str, help='detection, geometry or retrieval')
     parser.add_argument('--epochs', default=300, type=int)
     parser.add_argument('-b', '--batch-size', default=4, type=int)
     parser.add_argument('--tiny', required=False, type=int, default=None, help='Select a subset of x games')

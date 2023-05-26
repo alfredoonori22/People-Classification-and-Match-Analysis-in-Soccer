@@ -61,7 +61,7 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch):
     return last_loss
 
 
-def validation(model, validation_loader):
+def evaluate(model, validation_loader):
     model.eval()
     with torch.inference_mode():
 

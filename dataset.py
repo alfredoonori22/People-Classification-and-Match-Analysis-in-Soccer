@@ -42,7 +42,7 @@ class SNDetection(torch.utils.data.Dataset):
         # Get the list of the selected subset of games
         self.list_games = getListGames(split, task="frames")
         if args.tiny is not None:
-            # Dimiuiamo dimensione validation per debug
+            # Diminuiamo dimensione validation per debug
             if split == "valid":
                 args.tiny = args.tiny // 5
             self.list_games = self.list_games[:args.tiny]
