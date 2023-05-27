@@ -14,51 +14,48 @@ from train_detection import train_one_epoch_detection, evaluate
 os.environ["WANDB_SILENT"] = "true"
 
 
-def create_model():
-    kwargs = {"tau_l": args.tl, "tau_h": args.th, "trainable_backbone_layers": args.trainable_backbone_layers}
-    model_ = fasterrcnn_resnet50_fpn(weights=FasterRCNN_ResNet50_FPN_Weights.DEFAULT, **kwargs)
-
-    # get number of input features for the classifier
-    in_features = model_.roi_heads.box_predictor.cls_score.in_features
-    # replace the pre-trained head with a new one
-    model_.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, 9)    # 9 is the numer of dataset classes (8) + 1 (background)
-
-    # Adding dropout to the 2 fully connected layer
-    model_.roi_heads.box_head.fc6 = nn.Sequential(
-        model_.roi_heads.box_head.fc6,
-        nn.Dropout(p=0.25))
-
-    model_.roi_heads.box_head.fc7 = nn.Sequential(
-        model_.roi_heads.box_head.fc7,
-        nn.Dropout(p=0.25))
-
-    model_.cuda()
-
-    return model_
-
-
 if __name__ == '__main__':
     args = get_args()
     print('These are the parameters from the command line: ')
     print(args)
-
-    # Initialization and Configuration wandb
-    wandb.init(project="SoccerNet",
-               name="SoccerNet Detection",
-               config={
-                   'dataset': 'SoccerNet',
-                   'epochs': args.epochs,
-                   'batch_size': args.batch_size,
-                   'architecture': 'fasterrcnn_resnet50_fpn'
-               })
 
     if torch.cuda.is_available():
         device = torch.device('cuda')
     else:
         print('No cuda device')
 
+    # Creating model
+    print('Creating Model')
+    kwargs = {"tau_l": args.tl, "tau_h": args.th, "trainable_backbone_layers": args.trainable_backbone_layers}
+    model = fasterrcnn_resnet50_fpn(weights=FasterRCNN_ResNet50_FPN_Weights.DEFAULT, **kwargs)
+
+    # get number of input features for the classifier
+    in_features = model.roi_heads.box_predictor.cls_score.in_features
+    # replace the pre-trained head with a new one
+    model.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, 9)  # 9 is the numer of dataset classes (8) + 1 (background)
+
+    # Adding dropout to the 2 fully connected layer
+    model.roi_heads.box_head.fc6 = nn.Sequential(
+        model.roi_heads.box_head.fc6,
+        nn.Dropout(p=0.25))
+
+    model.roi_heads.box_head.fc7 = nn.Sequential(
+        model.roi_heads.box_head.fc7,
+        nn.Dropout(p=0.25))
+
+    model.cuda()
+
     # Choosing split
-    if args.split == 'train':
+    if args.train:
+        # Initialization and Configuration wandb
+        wandb.init(project="SoccerNet",
+                   name="SoccerNet Detection",
+                   config={
+                       'dataset': 'SoccerNet',
+                       'epochs': args.epochs,
+                       'batch_size': args.batch_size,
+                       'architecture': 'fasterrcnn_resnet50_fpn'
+                   })
         print('Train phase for Detection task')
 
         # Data Loading Code
@@ -77,10 +74,6 @@ if __name__ == '__main__':
         validation_loader = torch.utils.data.DataLoader(dataset_valid, batch_sampler=valid_batch_sampler,
                                                         collate_fn=collate_fn)
 
-        # Creating model
-        print('Creating Model')
-        model = create_model()
-
         # Optimizer
         params = [p for p in model.parameters() if p.requires_grad]
         optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
@@ -96,15 +89,13 @@ if __name__ == '__main__':
 
         print("Start training")
 
-        best_score = 0
-
-        # TODO: Ricordarsi di rimetterlo per non sovrascrivere
-        # best_model = torch.load("model/best_model")
-        # best_score = best_model['score']
+        best_model = torch.load("model/best_model")
+        best_score = best_model['score']
         counter = 0
 
         for epoch in range(args.start_epoch, args.epochs):
             print(f'EPOCH: {epoch + 1}')
+            breakpoint()
 
             loss = train_one_epoch_detection(model, optimizer, training_loader, epoch)
 
@@ -152,7 +143,7 @@ if __name__ == '__main__':
 
         wandb.finish()
 
-    elif args.split == 'test':
+    if args.test_only:
         print('Test phase for Detection task')
 
         # Data Loading Code
@@ -168,15 +159,10 @@ if __name__ == '__main__':
         # Retrieving the model
         print("Retrieving the model")
         best_model = torch.load("model/best_model")
-        model = create_model()
-        model.load_state_dict(best_model)
+        model.load_state_dict(best_model['model_state_dict'])
 
         print('Testing the model')
         score = evaluate(model, test_loader)
         score = round(float(score)*100, 2)
 
         print(f'Test mAP: {score}')
-
-    else:
-        print('ERROR: invalid split')
-        exit(-1)
