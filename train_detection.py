@@ -56,7 +56,7 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch):
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': running_loss,
-            }, "model/checkpoint_detection.pt")
+            }, "model/checkpoint_detection")
             running_loss = 0.0
 
     return last_loss

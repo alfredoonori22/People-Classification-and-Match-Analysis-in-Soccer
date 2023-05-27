@@ -21,7 +21,7 @@ def create_model():
     # get number of input features for the classifier
     in_features = model_.roi_heads.box_predictor.cls_score.in_features
     # replace the pre-trained head with a new one
-    model_.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, dataset_train.num_classes() + 1)
+    model_.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, 9)    # 9 is the numer of dataset classes (8) + 1 (background)
 
     # Adding dropout to the 2 fully connected layer
     model_.roi_heads.box_head.fc6 = nn.Sequential(
@@ -88,14 +88,19 @@ if __name__ == '__main__':
         # Resuming
         if args.resume:
             print("Resuming")
-            checkpoint = torch.load("model/checkpoint_detection.pt")
+            checkpoint = torch.load("model/checkpoint_detection")
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             args.start_epoch = checkpoint['epoch'] + 1
             loss = checkpoint['loss']
 
         print("Start training")
-        best_score = 0.0
+
+        best_score = 0
+
+        # TODO: Ricordarsi di rimetterlo per non sovrascrivere
+        # best_model = torch.load("model/best_model")
+        # best_score = best_model['score']
         counter = 0
 
         for epoch in range(args.start_epoch, args.epochs):
@@ -115,7 +120,7 @@ if __name__ == '__main__':
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': loss,
-            }, "model/checkpoint_detection.pt")
+            }, "model/checkpoint_detection")
 
             print("Start validation")
             # Validation at the end of each epoch
@@ -132,8 +137,10 @@ if __name__ == '__main__':
             if math.isfinite(score) and score > best_score:
                 print("New best")
                 best_score = score
-                model_path = f'model/best_model'
-                torch.save(model.state_dict(), model_path)
+                torch.save({
+                    'model_state_dict': model.state_dict(),
+                    'score': score,
+                }, "model/best_model")
 
                 counter = 0
             else:
@@ -160,9 +167,9 @@ if __name__ == '__main__':
 
         # Retrieving the model
         print("Retrieving the model")
-        checkpoint = torch.load("model/best_model")
+        best_model = torch.load("model/best_model")
         model = create_model()
-        model.load_state_dict(checkpoint['model_state_dict'])
+        model.load_state_dict(best_model)
 
         print('Testing the model')
         score = evaluate(model, test_loader)
