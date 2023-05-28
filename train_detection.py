@@ -1,3 +1,5 @@
+import math
+
 import torch
 import torchvision
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
@@ -31,16 +33,19 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch):
         loss_dict = model(images, targets)
         losses = sum(loss for loss in loss_dict.values())
 
+        if not math.isfinite(losses):
+            for j in targets:
+                print(f"Loss is {losses}, images_id was {j['image_id']}")
+            continue
+
         # TODO: Verificare che serva fare il .cpu
-        images = list(image.cpu() for image in images)
-        targets = [{k: v.cpu() for k, v in t.items()} for t in targets]
+        # images = list(image.cpu() for image in images)
+        # targets = [{k: v.cpu() for k, v in t.items()} for t in targets]
 
         # Zero gradients for every batch
         optimizer.zero_grad()
         # Compute the gradients w.r.t. losses
         losses.backward()
-        # Clip the gradients norm to avoid exploding gradient
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 4.0)
         # Adjust learning weights
         optimizer.step()
 
@@ -64,13 +69,10 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch):
 
 def evaluate(model, validation_loader):
     model.eval()
+
     with torch.inference_mode():
-
-        # Global validation score
-        score = 0.0
-
-        # Number of batches in validation set
-        i = 0
+        # Validation metric
+        metric = MeanAveragePrecision()
 
         for i, (images, targets) in enumerate(validation_loader):
             # Singol batch's score
@@ -78,18 +80,14 @@ def evaluate(model, validation_loader):
 
             # Predict the output
             outputs = model(images)
-            images = list(image.cpu() for image in images)
+            # images = list(image.cpu() for image in images)
             outputs = [{k: v.cpu() for k, v in t.items()} for t in outputs]
 
             # Non Max Suppression to discard intersected superflous bboxes
             outputs = [apply_nms(o, iou_thresh=0.2) for o in outputs]
 
-            metric = MeanAveragePrecision()
             metric.update(outputs, targets)
-            res_b = metric.compute()
 
-            score = score + float(res_b['map'])
+        res = metric.compute()
 
-        score = score / (i+1)
-
-    return score
+    return res['map']

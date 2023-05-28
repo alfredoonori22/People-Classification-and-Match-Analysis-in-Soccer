@@ -1,5 +1,6 @@
 import math
 import os
+import sys
 
 import torch.utils.data
 import wandb
@@ -42,6 +43,9 @@ if __name__ == '__main__':
     model.roi_heads.box_head.fc7 = nn.Sequential(
         model.roi_heads.box_head.fc7,
         nn.Dropout(p=0.25))
+
+    # Freezing backbone and FPN
+    model.backbone.requires_grad_(False)
 
     model.cuda()
 
@@ -89,13 +93,13 @@ if __name__ == '__main__':
 
         print("Start training")
 
-        best_model = torch.load("model/best_model")
-        best_score = best_model['score']
+        # best_model = torch.load("model/best_model")
+        # best_score = best_model['score']
+        best_score = 0
         counter = 0
 
         for epoch in range(args.start_epoch, args.epochs):
             print(f'EPOCH: {epoch + 1}')
-            breakpoint()
 
             loss = train_one_epoch_detection(model, optimizer, training_loader, epoch)
 
@@ -116,7 +120,8 @@ if __name__ == '__main__':
             print("Start validation")
             # Validation at the end of each epoch
             score = evaluate(model, validation_loader)
-            score = round(float(score)*100, 2)
+            score = float(score) * 100
+            # score = round(float(score)*100, 2)
 
             # Update wandb
             wandb.define_metric("validation_mAP", step_metric='epoch', goal='maximize')
@@ -143,7 +148,7 @@ if __name__ == '__main__':
 
         wandb.finish()
 
-    if args.test_only:
+    if args.test:
         print('Test phase for Detection task')
 
         # Data Loading Code
@@ -152,7 +157,7 @@ if __name__ == '__main__':
 
         print("Creating data loader")
         test_batch_sampler = torch.utils.data.BatchSampler(
-            torch.utils.data.RandomSampler(dataset_test), batch_size=args.batch_size, drop_last=True)
+            torch.utils.data.SequentialSampler(dataset_test), batch_size=args.batch_size, drop_last=True)
         test_loader = torch.utils.data.DataLoader(dataset_test, batch_sampler=test_batch_sampler,
                                                   collate_fn=collate_fn)
 
@@ -166,3 +171,6 @@ if __name__ == '__main__':
         score = round(float(score)*100, 2)
 
         print(f'Test mAP: {score}')
+
+    if not (args.train or args.test):
+        sys.exit("Error: invalid split given")
