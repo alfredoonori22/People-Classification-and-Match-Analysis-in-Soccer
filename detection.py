@@ -5,7 +5,8 @@ import sys
 import torch.utils.data
 import wandb
 from torch import nn
-from torchvision.models.detection import FasterRCNN_ResNet50_FPN_Weights, fasterrcnn_resnet50_fpn, faster_rcnn
+from torchvision.models import ResNet50_Weights
+from torchvision.models.detection import fasterrcnn_resnet50_fpn, faster_rcnn
 
 import transform as T
 from argument_parser import get_args
@@ -28,7 +29,7 @@ if __name__ == '__main__':
     # Creating model
     print('Creating Model')
     kwargs = {"tau_l": args.tl, "tau_h": args.th, "trainable_backbone_layers": args.trainable_backbone_layers}
-    model = fasterrcnn_resnet50_fpn(weights=FasterRCNN_ResNet50_FPN_Weights.DEFAULT, **kwargs)
+    model = fasterrcnn_resnet50_fpn(weights_backbone=ResNet50_Weights.IMAGENET1K_V1, **kwargs)
 
     # get number of input features for the classifier
     in_features = model.roi_heads.box_predictor.cls_score.in_features
@@ -44,7 +45,7 @@ if __name__ == '__main__':
         model.roi_heads.box_head.fc7,
         nn.Dropout(p=0.25))
 
-    # Freezing backbone and FPN
+    # Freezing backbone
     model.backbone.requires_grad_(False)
 
     model.cuda()

@@ -23,6 +23,8 @@ class Compose(object):
 
 class ResizeImg:
     def __call__(self, image, target, size):
+        # Revert tuple order for Resize()
+        size = size[::-1]
         # Resize the image
         resize = Resize(size)
         image = resize(image)

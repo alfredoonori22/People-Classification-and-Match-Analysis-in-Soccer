@@ -38,10 +38,6 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch):
                 print(f"Loss is {losses}, images_id was {j['image_id']}")
             continue
 
-        # TODO: Verificare che serva fare il .cpu
-        # images = list(image.cpu() for image in images)
-        # targets = [{k: v.cpu() for k, v in t.items()} for t in targets]
-
         # Zero gradients for every batch
         optimizer.zero_grad()
         # Compute the gradients w.r.t. losses
@@ -80,7 +76,6 @@ def evaluate(model, validation_loader):
 
             # Predict the output
             outputs = model(images)
-            # images = list(image.cpu() for image in images)
             outputs = [{k: v.cpu() for k, v in t.items()} for t in outputs]
 
             # Non Max Suppression to discard intersected superflous bboxes
