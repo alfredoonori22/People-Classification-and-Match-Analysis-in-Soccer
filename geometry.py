@@ -1,12 +1,12 @@
 import cv2
 import numpy as np
-from argument_parser import get_args
 from scipy.spatial.distance import cdist
 from sklearn.cluster import KMeans
 
 BALL_DIAMETER = 23
 
-def PeopleDetection():
+
+def PeopleDetection(zoomed_image):
     # HOG Descriptor for People Detection
     hog = cv2.HOGDescriptor()
     hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
@@ -16,11 +16,12 @@ def PeopleDetection():
     gray = cv2.GaussianBlur(gray, (7, 7), 0)
 
     # Detect people's bboxes
-    bboxes, _ = hog.detectMultiScale(gray, winStride=(1, 1), padding=(5, 5), scale=1.1)
+    bboxes, scores = hog.detectMultiScale(gray, winStride=(1, 1), padding=(5, 5), scale=1.1)
+    bboxes = [bbox.tolist() for bbox, score in zip(bboxes, scores) if score > 0.6]
 
-    # Drawing bboxes
     for (x, y, w, h) in bboxes:
         cv2.rectangle(zoomed_image, (x, y), (x + w, y + h), (255, 0, 0), 2)
+    cv2.imwrite("image.png", zoomed_image)
 
     return bboxes
 
@@ -39,13 +40,12 @@ def NearestPlayer(bboxes, ball_center):
         centers.append((center_x, center_y))
 
     # Calculate distance from the ball's center and each player's bbox center
-    distance = cdist(np.array([ball_center]), np.array(centers), 'euclidean')
+    distances = cdist(np.array([ball_center]), np.array(centers), 'euclidean')[0]
 
-    # Find the index of the player
-    nearest = distance.argmin()
-
-    # Distance in pixel from the nearest player
-    distance_nearest = float(distance[nearest])
+    # Find player index
+    nearest = distances.argmin()
+    # Distance in pixel for the nearest player
+    distance_nearest = float(distances[nearest])
 
     return nearest, distance_nearest
 
@@ -53,7 +53,7 @@ def NearestPlayer(bboxes, ball_center):
 def px2cm(distance, width):
     measure = 'cm'
 
-    # Ratio pixel - cm
+    # cm/pixel ratio
     pixel_ratio = BALL_DIAMETER / width
     dist = round(pixel_ratio * distance, 2)
 
@@ -77,7 +77,7 @@ def ShirtColor(image, bbox):
     height, width, _ = player_img.shape
 
     # Crop the image on the shirt
-    shirt_img = player_img[int(height / 8):int(3 * height / 8), int(width / 4):int(3 * width / 4)]
+    shirt_img = player_img[int(height / 8):int(1 * height / 2), int(width / 4):int(3 * width / 4)]
 
     # New dimension of the image
     height, width, dim = shirt_img.shape
@@ -122,32 +122,26 @@ def ShirtColor(image, bbox):
 
 
 if __name__ == '__main__':
-    args = get_args()
-    print('These are the parameters from the command line: ')
-    print(args)
-
     # TODO: invece di avere un solo frame, estraiamo i frame da un video test
-    image = cv2.imread(
-        f'{args.data_path}/england_epl/2014-2015/2015-02-21 - 18-00 Chelsea 1 - 1 Burnley/Frames-v3/1.png')
+    image = cv2.imread('/mnt/beegfs/work/cvcs_2022_group20/SoccerNet-v3/england_epl/2014-2015/2015-02-21 - 18-00 Chelsea 1 - 1 Burnley/Frames-v3/1_3.png')
 
-    # Bounding box ball
-    x1, x2, y1, y2 = int(677.33), int(698.85), int(502.3), int(524.51)
-    cv2.rectangle(image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+    # Ball bounding box
+    x1, x2, y1, y2 = int(1326.64), int(1403.89), int(711.23), int(782.16)
 
-    # Dimension of ball's bb
+    # Ball's center coordinates in original image
+    center_x = int((x1 + x2) / 2)
+    center_y = int((y1 + y2) / 2)
+
+    # Ball's bbox dimension
     width_ball = x2 - x1
     height_ball = y2 - y1
 
     # Zoom factor
     zoom_factor = 10
 
-    # Zooming the image
+    # Zooming the image on the ball
     new_width = int(width_ball * zoom_factor)
     new_height = int(height_ball * zoom_factor)
-
-    # Ball's center coordinates in original image
-    center_x = int((x1 + x2) / 2)
-    center_y = int((y1 + y2) / 2)
 
     # New dimension of the image
     x1 = max(0, center_x - int(new_width / 2))
@@ -159,10 +153,15 @@ if __name__ == '__main__':
     # Ball's center coordinates in resized image
     ball_center = (new_width / 2, new_height / 2)
 
-    # HOG Descriptor for People Detection
-    bboxes = PeopleDetection()
+    # Detect people in zoomed image
+    bboxes = PeopleDetection(zoomed_image)
 
-    # Nearest Player
+    if len(bboxes) == 0:
+        print("No player nearby")
+        # Nel for dei frame del video sarà un continue
+        exit()
+
+    # Find the nearest Player from the ball
     idx, distance_px = NearestPlayer(bboxes, ball_center)
 
     # Convert pixel distance to cm distance

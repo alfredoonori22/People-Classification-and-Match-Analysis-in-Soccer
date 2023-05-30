@@ -9,13 +9,10 @@ from SoccerNet.utils import getListGames
 import transform as T
 
 CLASS_DICT = {'Ball': 1,
-              'Player team left': 2,
-              'Player team right': 3,
-              'Goalkeeper team left': 4,
-              'Goalkeeper team right': 5,
-              'Main referee': 6,
-              'Side referee': 7,
-              'Staff members': 8
+              'Player': 2,
+              'Goalkeeper': 3,
+              'Referee': 4,
+              'Staff members': 5
               }
 
 
@@ -102,6 +99,14 @@ class SNDetection(torch.utils.data.Dataset):
                 for b in iterate:
                     # Loop through the bboxes of each image
 
+                    # Merge label for two type of Player, Goalkeeper and Referee
+                    if b['class'].startswith("Player"):
+                        b['class'] = "Player"
+                    elif b['class'].startswith("Goalkeeper"):
+                        b['class'] = "Goalkeeper"
+                    elif b['class'].endswith("referee"):
+                        b['class'] = "Referee"
+
                     # Verify if the bbox's label is in the dictionary
                     if b['class'] not in CLASS_DICT:
                         continue
@@ -123,9 +128,13 @@ class SNDetection(torch.utils.data.Dataset):
                     iscrowds.append(0)
 
                 # Scale the bboxes
-                boxes = torch.tensor(boxes)
-                boxes[:, 0::2] = boxes[:, 0::2] * x_scale
-                boxes[:, 1::2] = boxes[:, 1::2] * y_scale
+                if len(boxes) > 0:
+                    boxes = torch.tensor(boxes)
+                    boxes[:, 0::2] = boxes[:, 0::2] * x_scale
+                    boxes[:, 1::2] = boxes[:, 1::2] * y_scale
+                else:
+                    print(f'Partita senza bbox valide {game}, id {k}')
+                    exit()
 
                 tmp_dict = {'boxes': boxes,
                             'labels': torch.tensor(labels),

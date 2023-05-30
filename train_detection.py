@@ -1,8 +1,26 @@
-import math
-
+import cv2
+import numpy as np
 import torch
 import torchvision
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
+from torchvision.transforms import ToPILImage
+
+from dataset import CLASS_DICT
+
+
+def draw_bbox(image, target, output):
+    image = image.cpu()
+    image = ToPILImage()(image)
+    image = np.array(image)
+    keys = list(CLASS_DICT.keys())
+
+    for i, (x1, y1, x2, y2) in enumerate(output['boxes']):
+        cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 2)
+        index = (list(CLASS_DICT.values()).index(int(output['labels'][i])))
+        cv2.putText(image, keys[index], (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
+    for (x1, y1, x2, y2) in target['boxes']:
+        cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
+    cv2.imwrite("bbox.png", image)
 
 
 def apply_nms(orig_prediction, iou_thresh=0.3):
@@ -32,11 +50,6 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch):
         # Make predictions for this batch
         loss_dict = model(images, targets)
         losses = sum(loss for loss in loss_dict.values())
-
-        if not math.isfinite(losses):
-            for j in targets:
-                print(f"Loss is {losses}, images_id was {j['image_id']}")
-            continue
 
         # Zero gradients for every batch
         optimizer.zero_grad()
@@ -80,6 +93,8 @@ def evaluate(model, validation_loader):
 
             # Non Max Suppression to discard intersected superflous bboxes
             outputs = [apply_nms(o, iou_thresh=0.2) for o in outputs]
+
+            # draw_bbox(images[0], targets[0], outputs[0])
 
             metric.update(outputs, targets)
 

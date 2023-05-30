@@ -28,13 +28,13 @@ if __name__ == '__main__':
 
     # Creating model
     print('Creating Model')
-    kwargs = {"tau_l": args.tl, "tau_h": args.th, "trainable_backbone_layers": args.trainable_backbone_layers}
+    kwargs = {"tau_l": args.tl, "tau_h": args.th}
     model = fasterrcnn_resnet50_fpn(weights_backbone=ResNet50_Weights.IMAGENET1K_V1, **kwargs)
 
     # get number of input features for the classifier
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     # replace the pre-trained head with a new one
-    model.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, 9)  # 9 is the numer of dataset classes (8) + 1 (background)
+    model.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, 6)  # 5 is the numer of dataset classes (5) + 1 (background)
 
     # Adding dropout to the 2 fully connected layer
     model.roi_heads.box_head.fc6 = nn.Sequential(
@@ -121,8 +121,7 @@ if __name__ == '__main__':
             print("Start validation")
             # Validation at the end of each epoch
             score = evaluate(model, validation_loader)
-            score = float(score) * 100
-            # score = round(float(score)*100, 2)
+            score = round(float(score)*100, 2)
 
             # Update wandb
             wandb.define_metric("validation_mAP", step_metric='epoch', goal='maximize')

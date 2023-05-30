@@ -15,14 +15,13 @@ def get_args():
     parser.add_argument('--size', type=str, default="(1920,1080)", help='Target dimension for image pre-processing')
 
     # Model
-    parser.add_argument('--trainable-backbone-layers', type=int, default=0, help='number of trainable layers of backbone')
     parser.add_argument('--tl', default=0.9, type=float, help='Value for tau_low (default: 0.9')
     parser.add_argument('--th', default=1., type=float, help='Value for tau_high (default: 1.)')
 
     # Training
     parser.add_argument('--resume', type=str, default=False, help='Resume from checkpoint')
     parser.add_argument('--start_epoch', type=int, default=0, help='Start epoch')
-    parser.add_argument('--patience', type=int, default=5, help='Number of epochs before early stopping')
+    parser.add_argument('--patience', type=int, default=10, help='Number of epochs before early stopping')
 
     # Optimizer
     parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
