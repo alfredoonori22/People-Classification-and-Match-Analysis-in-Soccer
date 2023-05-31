@@ -128,13 +128,10 @@ class SNDetection(torch.utils.data.Dataset):
                     iscrowds.append(0)
 
                 # Scale the bboxes
-                if len(boxes) > 0:
-                    boxes = torch.tensor(boxes)
-                    boxes[:, 0::2] = boxes[:, 0::2] * x_scale
-                    boxes[:, 1::2] = boxes[:, 1::2] * y_scale
-                else:
-                    print(f'Partita senza bbox valide {game}, id {k}')
-                    exit()
+
+                boxes = torch.tensor(boxes)
+                boxes[:, 0::2] = boxes[:, 0::2] * x_scale
+                boxes[:, 1::2] = boxes[:, 1::2] * y_scale
 
                 tmp_dict = {'boxes': boxes,
                             'labels': torch.tensor(labels),

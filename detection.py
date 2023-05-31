@@ -1,4 +1,3 @@
-import math
 import os
 import sys
 
@@ -130,7 +129,7 @@ if __name__ == '__main__':
             print(f'valid mAP: {score}')
 
             # If score is better than the saved one, update it and save the model
-            if math.isfinite(score) and score > best_score:
+            if score > best_score:
                 print("New best")
                 best_score = score
                 torch.save({

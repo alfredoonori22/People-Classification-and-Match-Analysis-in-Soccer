@@ -81,7 +81,7 @@ def evaluate(model, validation_loader):
 
     with torch.inference_mode():
         # Validation metric
-        metric = MeanAveragePrecision()
+        metric = MeanAveragePrecision(class_metrics=True)
 
         for i, (images, targets) in enumerate(validation_loader):
             # Singol batch's score
@@ -94,10 +94,18 @@ def evaluate(model, validation_loader):
             # Non Max Suppression to discard intersected superflous bboxes
             outputs = [apply_nms(o, iou_thresh=0.2) for o in outputs]
 
+            # Keeping only the boxes with high score
+            outputs = [
+                {'boxes': torch.stack([box for box, score in zip(d['boxes'], d['scores']) if score > 0.3]),
+                 'labels': torch.tensor([label for label, score in zip(d['labels'], d['scores']) if score > 0.3]),
+                 'scores': torch.tensor([score for score in d['scores'] if score > 0.3])}
+                for d in outputs]
+
             # draw_bbox(images[0], targets[0], outputs[0])
 
             metric.update(outputs, targets)
 
         res = metric.compute()
+        print(res)
 
     return res['map']
