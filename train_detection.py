@@ -20,7 +20,7 @@ def draw_bbox(image, target, output):
         cv2.putText(image, keys[index], (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
     for (x1, y1, x2, y2) in target['boxes']:
         cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
-    cv2.imwrite("bbox.png", image)
+    cv2.imwrite(f"image/bbox-{target['image_id']}.png", image)
 
 
 def apply_nms(orig_prediction, iou_thresh=0.3):
@@ -101,7 +101,8 @@ def evaluate(model, validation_loader):
                  'scores': torch.tensor([score for score in d['scores'] if score > 0.3])}
                 for d in outputs]
 
-            # draw_bbox(images[0], targets[0], outputs[0])
+            # for k, _ in enumerate(outputs):
+                # draw_bbox(images[k], targets[k], outputs[k])
 
             metric.update(outputs, targets)
 

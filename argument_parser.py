@@ -14,10 +14,6 @@ def get_args():
     parser.add_argument('--tiny', required=False, type=int, default=None, help='Select a subset of x games')
     parser.add_argument('--size', type=str, default="(1920,1080)", help='Target dimension for image pre-processing')
 
-    # Model
-    parser.add_argument('--tl', default=0.9, type=float, help='Value for tau_low (default: 0.9')
-    parser.add_argument('--th', default=1., type=float, help='Value for tau_high (default: 1.)')
-
     # Training
     parser.add_argument('--resume', type=str, default=False, help='Resume from checkpoint')
     parser.add_argument('--start_epoch', type=int, default=0, help='Start epoch')

@@ -15,20 +15,9 @@ from train_detection import train_one_epoch_detection, evaluate
 os.environ["WANDB_SILENT"] = "true"
 
 
-if __name__ == '__main__':
-    args = get_args()
-    print('These are the parameters from the command line: ')
-    print(args)
-
-    if torch.cuda.is_available():
-        device = torch.device('cuda')
-    else:
-        print('No cuda device')
-
-    # Creating model
+def CreateModel():
     print('Creating Model')
-    kwargs = {"tau_l": args.tl, "tau_h": args.th}
-    model = fasterrcnn_resnet50_fpn(weights_backbone=ResNet50_Weights.IMAGENET1K_V1, **kwargs)
+    model = fasterrcnn_resnet50_fpn(weights_backbone=ResNet50_Weights.IMAGENET1K_V1)
 
     # get number of input features for the classifier
     in_features = model.roi_heads.box_predictor.cls_score.in_features
@@ -48,6 +37,22 @@ if __name__ == '__main__':
     model.backbone.requires_grad_(False)
 
     model.cuda()
+
+    return model
+
+
+if __name__ == '__main__':
+    args = get_args()
+    print('These are the parameters from the command line: ')
+    print(args)
+
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        print('No cuda device')
+
+    # Creating model
+    model = CreateModel()
 
     # Choosing split
     if args.train:
@@ -93,9 +98,8 @@ if __name__ == '__main__':
 
         print("Start training")
 
-        # best_model = torch.load("model/best_model")
-        # best_score = best_model['score']
-        best_score = 0
+        best_model = torch.load("model/best_model")
+        best_score = best_model['score']
         counter = 0
 
         for epoch in range(args.start_epoch, args.epochs):

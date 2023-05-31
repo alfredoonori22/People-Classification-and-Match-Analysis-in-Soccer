@@ -1,7 +1,11 @@
 import cv2
 import numpy as np
+import torch
 from scipy.spatial.distance import cdist
 from sklearn.cluster import KMeans
+from torchvision.transforms import functional
+
+from detection import CreateModel
 
 BALL_DIAMETER = 23
 
@@ -122,11 +126,45 @@ def ShirtColor(image, bbox):
 
 
 if __name__ == '__main__':
-    # TODO: invece di avere un solo frame, estraiamo i frame da un video test
-    image = cv2.imread('/mnt/beegfs/work/cvcs_2022_group20/SoccerNet-v3/england_epl/2014-2015/2015-02-21 - 18-00 Chelsea 1 - 1 Burnley/Frames-v3/1_3.png')
 
-    # Ball bounding box
-    x1, x2, y1, y2 = int(1326.64), int(1403.89), int(711.23), int(782.16)
+    # Retrieving best model
+    model = CreateModel()
+    best_model = torch.load("model/best_model")
+    model.load_state_dict(best_model['model_state_dict'])
+    model.eval()
+
+    # TODO: invece di avere un solo frame, estraiamo i frame da un video test
+    cv_image = cv2.imread('/mnt/beegfs/work/cvcs_2022_group20/SoccerNet-v3/england_epl/2014-2015/2015-02-21 - 18-00 Chelsea 1 - 1 Burnley/Frames-v3/8.png')
+
+    # Image pre-processing
+    image = functional.to_tensor(cv_image)
+    image = image.cuda()
+
+    # Finding boxes in image
+    with torch.inference_mode():
+        output = model([image])
+
+    output = {k: v.cpu() for k, v in output[0].items()}
+
+    # Keeping only the predicted ball boxes
+    ball_boxes = output['boxes'][np.where(output['labels'] == 1)]
+    ball_scores = output['scores'][np.where(output['labels'] == 1)]
+
+    # Skip image without ball
+    if len(ball_boxes) == 0:
+        # Nel for dei frame del video saranno continue
+        print("Error 404: Ball not found")
+        exit()
+
+    # Select the box with the highest score
+    idx = np.argmax(ball_scores)
+    ball_box = ball_boxes[idx]
+
+    # Ball coordinates
+    x1, y1, x2, y2 = ball_box
+    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+
+    print("Ball coordinates: ", x1, y1, x2, y2)
 
     # Ball's center coordinates in original image
     center_x = int((x1 + x2) / 2)
@@ -146,9 +184,9 @@ if __name__ == '__main__':
     # New dimension of the image
     x1 = max(0, center_x - int(new_width / 2))
     y1 = max(0, center_y - int(new_height / 2))
-    x2 = min(image.shape[1], x1 + new_width)
-    y2 = min(image.shape[0], y1 + new_height)
-    zoomed_image = image[y1:y2, x1:x2]
+    x2 = min(cv_image.shape[1], x1 + new_width)
+    y2 = min(cv_image.shape[0], y1 + new_height)
+    zoomed_image = cv_image[y1:y2, x1:x2]
 
     # Ball's center coordinates in resized image
     ball_center = (new_width / 2, new_height / 2)
@@ -158,7 +196,6 @@ if __name__ == '__main__':
 
     if len(bboxes) == 0:
         print("No player nearby")
-        # Nel for dei frame del video sarà un continue
         exit()
 
     # Find the nearest Player from the ball
@@ -170,5 +207,5 @@ if __name__ == '__main__':
     # Find dominant shirt color
     color = ShirtColor(zoomed_image, bboxes[idx])
 
-    print(f'The nearest player is at {distance_cm} {measure} from the ball')
+    print(f'The closest player is {distance_cm} {measure} from the ball')
     print(f'His shirt color is BGR: {color}')
