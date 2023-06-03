@@ -94,12 +94,20 @@ def evaluate(model, validation_loader):
             # Non Max Suppression to discard intersected superflous bboxes
             outputs = [apply_nms(o, iou_thresh=0.2) for o in outputs]
 
-            # Keeping only the boxes with high score
-            outputs = [
-                {'boxes': torch.stack([box for box, score in zip(d['boxes'], d['scores']) if score > 0.3]),
-                 'labels': torch.tensor([label for label, score in zip(d['labels'], d['scores']) if score > 0.3]),
-                 'scores': torch.tensor([score for score in d['scores'] if score > 0.3])}
-                for d in outputs]
+            for i, diz in enumerate(outputs):
+                if torch.any(diz['scores'] > 0.3):
+                    outputs[i] = {'boxes': torch.stack([box for box, score in zip(diz['boxes'], diz['scores'])
+                                                        if score > 0.3]),
+                                  'labels': torch.tensor([label for label, score in zip(diz['labels'], diz['scores'])
+                                                          if score > 0.3]),
+                                  'scores': torch.tensor([score for score in diz['scores']
+                                                          if score > 0.3])}
+                else:
+                    outputs[i] = {'boxes': torch.FloatTensor([]),
+                                  'labels': torch.FloatTensor([]),
+                                  'scores': torch.FloatTensor([])}
+
+            print(outputs)
 
             # for k, _ in enumerate(outputs):
             # draw_bbox(images[k], targets[k], outputs[k])

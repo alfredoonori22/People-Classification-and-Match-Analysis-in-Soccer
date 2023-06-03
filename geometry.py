@@ -22,11 +22,11 @@ def PeopleDetection(zoomed_image):
     # Detect people's bboxes
     bboxes, scores = hog.detectMultiScale(gray, winStride=(1, 1), padding=(5, 5), scale=1.1)
     bboxes = [bbox.tolist() for bbox, score in zip(bboxes, scores) if score > 0.6]
-    """
+
     for (x, y, w, h) in bboxes:
         cv2.rectangle(zoomed_image, (x, y), (x + w, y + h), (255, 0, 0), 2)
     cv2.imwrite("image.png", zoomed_image)
-    """
+
     return bboxes
 
 

@@ -15,9 +15,20 @@ from train_detection import train_one_epoch_detection, evaluate
 os.environ["WANDB_SILENT"] = "true"
 
 
-def CreateModel():
+if __name__ == '__main__':
+    args = get_args()
+    print('These are the parameters from the command line: ')
+    print(args)
+
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        print('No cuda device')
+
+    # Creating model
     print('Creating Model')
-    model = fasterrcnn_resnet50_fpn(weights_backbone=ResNet50_Weights.IMAGENET1K_V1)
+    kwargs = {"tau_l": args.tl, "tau_h": args.th}
+    model = fasterrcnn_resnet50_fpn(weights_backbone=ResNet50_Weights.IMAGENET1K_V1, **kwargs)
 
     # get number of input features for the classifier
     in_features = model.roi_heads.box_predictor.cls_score.in_features
@@ -37,22 +48,6 @@ def CreateModel():
     model.backbone.requires_grad_(False)
 
     model.cuda()
-
-    return model
-
-
-if __name__ == '__main__':
-    args = get_args()
-    print('These are the parameters from the command line: ')
-    print(args)
-
-    if torch.cuda.is_available():
-        device = torch.device('cuda')
-    else:
-        print('No cuda device')
-
-    # Creating model
-    model = CreateModel()
 
     # Choosing split
     if args.train:
@@ -90,7 +85,7 @@ if __name__ == '__main__':
         # Resuming
         if args.resume:
             print("Resuming")
-            checkpoint = torch.load("model/checkpoint_detection")
+            checkpoint = torch.load("/mnt/beegfs/work/cvcs_2022_group20/model/checkpoint_detection")
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             args.start_epoch = checkpoint['epoch'] + 1
@@ -98,8 +93,9 @@ if __name__ == '__main__':
 
         print("Start training")
 
-        best_model = torch.load("model/best_model")
+        best_model = torch.load("/mnt/beegfs/work/cvcs_2022_group20/model/best_model")
         best_score = best_model['score']
+        # best_score = 0
         counter = 0
 
         for epoch in range(args.start_epoch, args.epochs):
@@ -119,7 +115,7 @@ if __name__ == '__main__':
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': loss,
-            }, "model/checkpoint_detection")
+            }, "/mnt/beegfs/work/cvcs_2022_group20/model/checkpoint_detection")
 
             print("Start validation")
             # Validation at the end of each epoch
@@ -139,7 +135,7 @@ if __name__ == '__main__':
                 torch.save({
                     'model_state_dict': model.state_dict(),
                     'score': score,
-                }, "model/best_model")
+                }, "/mnt/beegfs/work/cvcs_2022_group20/model/best_model")
 
                 counter = 0
             else:
@@ -166,7 +162,7 @@ if __name__ == '__main__':
 
         # Retrieving the model
         print("Retrieving the model")
-        best_model = torch.load("model/best_model")
+        best_model = torch.load("/mnt/beegfs/work/cvcs_2022_group20/model/best_model")
         model.load_state_dict(best_model['model_state_dict'])
 
         print('Testing the model')
