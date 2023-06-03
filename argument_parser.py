@@ -15,7 +15,7 @@ def get_args():
     parser.add_argument('--size', type=str, default="(1920,1080)", help='Target dimension for image pre-processing')
 
     # Training
-    parser.add_argument('--resume', type=str, default=False, help='Resume from checkpoint')
+    parser.add_argument('--resume', action='store_true', help='Resume from checkpoint')
     parser.add_argument('--start_epoch', type=int, default=0, help='Start epoch')
     parser.add_argument('--patience', type=int, default=10, help='Number of epochs before early stopping')
 
