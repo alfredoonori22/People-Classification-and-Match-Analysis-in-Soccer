@@ -87,8 +87,8 @@ if __name__ == '__main__':
         # Resuming
         if args.resume:
             print("Resuming")
-            checkpoint = torch.load("/mnt/beegfs/homes/ccapellino/SoccerNet/model/checkpoint_detection")
-            checkpoint = torch.load("/mnt/beegfs/homes/ccapellino/SoccerNet/model/checkpoint_detection")
+            checkpoint = torch.load("model/checkpoint_detection")
+            checkpoint = torch.load("model/checkpoint_detection")
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             args.start_epoch = checkpoint['epoch'] + 1
@@ -96,7 +96,7 @@ if __name__ == '__main__':
 
         print("Start training")
 
-        # best_model = torch.load("/mnt/beegfs/homes/ccapellino/SoccerNet/model/best_model")
+        # best_model = torch.load("model/best_model")
         # best_score = best_model['score']
         best_score = 0
         counter = 0
@@ -118,7 +118,7 @@ if __name__ == '__main__':
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': loss,
-            }, "/mnt/beegfs/homes/ccapellino/SoccerNet/model/checkpoint_detection")
+            }, "model/checkpoint_detection")
 
             print("Start validation")
             # Validation at the end of each epoch
@@ -138,7 +138,7 @@ if __name__ == '__main__':
                 torch.save({
                     'model_state_dict': model.state_dict(),
                     'score': score,
-                }, "/mnt/beegfs/homes/ccapellino/SoccerNet/model/best_model")
+                }, "model/best_model")
 
                 counter = 0
             else:
@@ -165,7 +165,8 @@ if __name__ == '__main__':
 
         # Retrieving the model
         print("Retrieving the model")
-        best_model = torch.load("/mnt/beegfs/homes/ccapellino/SoccerNet/model/best_model")
+        best_model = torch.load("model/best_model")
+        best_model = torch.load("model/best_model")
         model.load_state_dict(best_model['model_state_dict'])
 
         print('Testing the model')
