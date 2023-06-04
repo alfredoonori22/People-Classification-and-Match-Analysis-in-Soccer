@@ -1,7 +1,7 @@
 import ast
 import json
 import os
-
+import numpy as np
 import torch.utils.data
 from PIL import Image
 from SoccerNet.utils import getListGames
@@ -58,7 +58,7 @@ class SNDetection(torch.utils.data.Dataset):
             # Loop through the game
 
             self.keys = list(self.data[i]['actions'].keys())  # List of images of each game (actions)
-            self.keys.extend(list(self.data[i]['replays'].keys()))   # and replays images
+            # self.keys.extend(list(self.data[i]['replays'].keys()))   # and replays images
             self.tot_len = self.tot_len + len(self.keys)
 
             for k in self.keys:
@@ -158,3 +158,61 @@ class SNDetection(torch.utils.data.Dataset):
         image, target = self.transforms(image, target, self.size)
 
         return image, target
+
+
+class MPIIDataset:
+    def __init__(self, split, transform=None):
+
+        self.num_joints = 16
+        self.flip_pairs = [[0, 5], [1, 4], [2, 3], [10, 15], [11, 14], [12, 13]]
+        self.parent_ids = [1, 2, 6, 6, 3, 4, 6, 6, 7, 8, 11, 12, 7, 7, 13, 14]
+        self.split = split
+        self.transform = transform
+
+        # Reading annotation file
+        file_name = os.path.join('/mnt/beegfs/work/cvcs_2022_group20/MPII/mpii_annotations/mpii_'
+                                 + self.split + '.json')
+        print(f'Reading annotation file: {file_name}')
+        file = json.load(open(file_name))
+
+        # Building the dataset
+        self.data = []
+        for a in file:
+            image_name = a['image']
+
+            c = np.array(a['center'], dtype=float)
+            s = np.array([a['scale'], a['scale']], dtype=float)
+
+            # Adjust center/scale slightly to avoid cropping limbs
+            if c[0] != -1:
+                c[1] = c[1] + 15 * s[1]
+                s = s * 1.25
+
+            # MPII uses matlab format, index is based 1,
+            # we should first convert to 0-based index
+            c = c - 1
+
+            joints_3d = np.zeros((self.num_joints, 3), dtype=float)
+            joints_3d_vis = np.zeros((self.num_joints, 3), dtype=float)
+
+            if self.split != 'test':
+                joints = np.array(a['joints'])
+                joints[:, 0:2] = joints[:, 0:2] - 1
+                joints_vis = np.array(a['joints_vis'])
+                assert len(joints) == self.num_joints, \
+                    'joint num diff: {} vs {}'.format(len(joints),
+                                                      self.num_joints)
+
+                joints_3d[:, 0:2] = joints[:, 0:2]
+                joints_3d_vis[:, 0] = joints_vis[:]
+                joints_3d_vis[:, 1] = joints_vis[:]
+
+            self.data.append({
+                'image': os.path.join('/mnt/beegfs/work/cvcs_2022_group20/MPII/images' + image_name),
+                'center': c,
+                'scale': s,
+                'joints_3d': joints_3d,
+                'joints_3d_vis': joints_3d_vis
+            })
+
+    # TODO: credo sia necessario implementare la funzione __getitem__

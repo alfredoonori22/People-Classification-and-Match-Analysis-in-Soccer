@@ -1,12 +1,10 @@
 import os
 import sys
-
 import torch.utils.data
 import wandb
 from torch import nn
 from torchvision.models import ResNet50_Weights
 from torchvision.models.detection import fasterrcnn_resnet50_fpn, faster_rcnn
-
 import transform as T
 from argument_parser import get_args
 from dataset import SNDetection, collate_fn
@@ -89,7 +87,8 @@ if __name__ == '__main__':
         # Resuming
         if args.resume:
             print("Resuming")
-            checkpoint = torch.load("/mnt/beegfs/work/cvcs_2022_group20/model/checkpoint_detection")
+            checkpoint = torch.load("/mnt/beegfs/homes/ccapellino/SoccerNet/model/checkpoint_detection")
+            checkpoint = torch.load("/mnt/beegfs/homes/ccapellino/SoccerNet/model/checkpoint_detection")
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             args.start_epoch = checkpoint['epoch'] + 1
@@ -97,9 +96,9 @@ if __name__ == '__main__':
 
         print("Start training")
 
-        best_model = torch.load("/mnt/beegfs/work/cvcs_2022_group20/model/best_model")
-        best_score = best_model['score']
-        # best_score = 0
+        # best_model = torch.load("/mnt/beegfs/homes/ccapellino/SoccerNet/model/best_model")
+        # best_score = best_model['score']
+        best_score = 0
         counter = 0
 
         for epoch in range(args.start_epoch, args.epochs):
@@ -119,7 +118,7 @@ if __name__ == '__main__':
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': loss,
-            }, "/mnt/beegfs/work/cvcs_2022_group20/model/checkpoint_detection")
+            }, "/mnt/beegfs/homes/ccapellino/SoccerNet/model/checkpoint_detection")
 
             print("Start validation")
             # Validation at the end of each epoch
@@ -139,7 +138,7 @@ if __name__ == '__main__':
                 torch.save({
                     'model_state_dict': model.state_dict(),
                     'score': score,
-                }, "/mnt/beegfs/work/cvcs_2022_group20/model/best_model")
+                }, "/mnt/beegfs/homes/ccapellino/SoccerNet/model/best_model")
 
                 counter = 0
             else:
@@ -166,7 +165,7 @@ if __name__ == '__main__':
 
         # Retrieving the model
         print("Retrieving the model")
-        best_model = torch.load("/mnt/beegfs/work/cvcs_2022_group20/model/best_model")
+        best_model = torch.load("/mnt/beegfs/homes/ccapellino/SoccerNet/model/best_model")
         model.load_state_dict(best_model['model_state_dict'])
 
         print('Testing the model')

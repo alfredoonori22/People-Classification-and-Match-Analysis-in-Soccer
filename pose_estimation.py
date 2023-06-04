@@ -1,7 +1,9 @@
 import os
 import sys
+import torch.utils.data
+import wandb
 from argument_parser import get_args
-from dataset import collate_fn
+from dataset import collate_fn, MPIIDataset
 
 os.environ["WANDB_SILENT"] = "true"
 
@@ -35,8 +37,8 @@ if __name__ == '__main__':
         # Data Loading Code
         print('Loading Data for Pose Estimation Training')
         # TODO: costruire una classe per caricamento dataset
-        # dataset_train = <function>(args, split='train', transform=<transforms_to_apply>)
-        # dataset_valid = <function>(args, split='valid', transform=<transforms_to_apply>)
+        dataset_train = MPIIDataset(split='train')
+        dataset_valid = MPIIDataset(split='valid')
 
         # Create data loaders for our datasets
         training_batch_sampler = torch.utils.data.BatchSampler(
@@ -46,7 +48,7 @@ if __name__ == '__main__':
 
         training_loader = torch.utils.data.DataLoader('''dataset_train''', batch_sampler=training_batch_sampler,
                                                   collate_fn=collate_fn)
-        validation_loader = torch.utils.data.DataLoader('''dataset_valid''', batch_sampler=valid_batch_sampler,
+        validation_loader = torch.utils.data.DdataLoader('''dataset_valid''', batch_sampler=valid_batch_sampler,
                                                     collate_fn=collate_fn)
 
         # Optimizer
