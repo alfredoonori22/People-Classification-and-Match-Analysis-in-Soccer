@@ -15,25 +15,14 @@ from train_detection import train_one_epoch_detection, evaluate
 os.environ["WANDB_SILENT"] = "true"
 
 
-if __name__ == '__main__':
-    args = get_args()
-    print('These are the parameters from the command line: ')
-    print(args)
-
-    if torch.cuda.is_available():
-        device = torch.device('cuda')
-    else:
-        print('No cuda device')
-
-    # Creating model
+def CreateModel():
     print('Creating Model')
-    kwargs = {"tau_l": args.tl, "tau_h": args.th}
-    model = fasterrcnn_resnet50_fpn(weights_backbone=ResNet50_Weights.IMAGENET1K_V1, **kwargs)
+    model = fasterrcnn_resnet50_fpn(weights_backbone=ResNet50_Weights.IMAGENET1K_V1)
 
     # get number of input features for the classifier
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     # replace the pre-trained head with a new one
-    model.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, 6)  # 5 is the numer of dataset classes (5) + 1 (background)
+    model.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, 6)  # 6 is the numer of dataset classes (5) + 1 (background)
 
     # Adding dropout to the 2 fully connected layer
     model.roi_heads.box_head.fc6 = nn.Sequential(
@@ -48,6 +37,21 @@ if __name__ == '__main__':
     model.backbone.requires_grad_(False)
 
     model.cuda()
+
+    return model
+
+
+if __name__ == '__main__':
+    args = get_args()
+    print('These are the parameters from the command line: ')
+    print(args)
+
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        print('No cuda device')
+
+    model = CreateModel()
 
     # Choosing split
     if args.train:

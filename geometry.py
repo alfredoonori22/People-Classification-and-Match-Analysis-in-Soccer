@@ -4,7 +4,6 @@ import torch
 from scipy.spatial.distance import cdist
 from sklearn.cluster import KMeans
 from torchvision.transforms import functional
-
 from detection import CreateModel
 
 BALL_DIAMETER = 23
@@ -129,7 +128,7 @@ if __name__ == '__main__':
 
     # Retrieving best model
     model = CreateModel()
-    best_model = torch.load("model/best_model")
+    best_model = torch.load('/mnt/beegfs/work/cvcs_2022_group20/model/best_model')
     model.load_state_dict(best_model['model_state_dict'])
     model.eval()
 

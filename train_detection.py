@@ -107,8 +107,6 @@ def evaluate(model, validation_loader):
                                   'labels': torch.FloatTensor([]),
                                   'scores': torch.FloatTensor([])}
 
-            print(outputs)
-
             # for k, _ in enumerate(outputs):
             # draw_bbox(images[k], targets[k], outputs[k])
 
