@@ -2,12 +2,11 @@ import os
 import sys
 import torch.utils.data
 import wandb
-from torch import nn
+from argument_parser import get_args
 from torchvision.models import ResNet50_Weights
 from torchvision.models.detection import fasterrcnn_resnet50_fpn, faster_rcnn
 import transform as T
-from argument_parser import get_args
-from dataset import SNDetection, collate_fn
+from dataset import SNDetection, collate_fn, create_dataloader
 from train_detection import train_one_epoch_detection, evaluate
 
 os.environ["WANDB_SILENT"] = "true"
@@ -20,8 +19,9 @@ def CreateModel():
     # get number of input features for the classifier
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     # replace the pre-trained head with a new one
-    model.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, 6)  # 6 is the numer of dataset classes (5) + 1 (background)
+    model.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, 3)  # 3 is the numer of dataset classes (3) + 1 (background)
 
+    """
     # Adding dropout to the 2 fully connected layer
     model.roi_heads.box_head.fc6 = nn.Sequential(
         model.roi_heads.box_head.fc6,
@@ -30,6 +30,7 @@ def CreateModel():
     model.roi_heads.box_head.fc7 = nn.Sequential(
         model.roi_heads.box_head.fc7,
         nn.Dropout(p=0.25))
+    """
 
     # Freezing backbone
     model.backbone.requires_grad_(False)
@@ -69,16 +70,8 @@ if __name__ == '__main__':
         dataset_train = SNDetection(args, split='train', transform=T.get_transform("train"))
         dataset_valid = SNDetection(args, split='valid', transform=T.get_transform("valid"))
 
-        # Create data loaders for our datasets
-        training_batch_sampler = torch.utils.data.BatchSampler(
-            torch.utils.data.RandomSampler(dataset_train), batch_size=args.batch_size, drop_last=True)
-        valid_batch_sampler = torch.utils.data.BatchSampler(
-            torch.utils.data.RandomSampler(dataset_valid), batch_size=args.batch_size, drop_last=True)
-
-        training_loader = torch.utils.data.DataLoader(dataset_train, batch_sampler=training_batch_sampler,
-                                                      collate_fn=collate_fn)
-        validation_loader = torch.utils.data.DataLoader(dataset_valid, batch_sampler=valid_batch_sampler,
-                                                        collate_fn=collate_fn)
+        training_loader = create_dataloader(dataset_train, args.batch_size)
+        validation_loader = create_dataloader(dataset_valid, args.batch_size)
 
         # Optimizer
         params = [p for p in model.parameters() if p.requires_grad]
@@ -87,7 +80,6 @@ if __name__ == '__main__':
         # Resuming
         if args.resume:
             print("Resuming")
-            checkpoint = torch.load("model/checkpoint_detection")
             checkpoint = torch.load("model/checkpoint_detection")
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -165,7 +157,6 @@ if __name__ == '__main__':
 
         # Retrieving the model
         print("Retrieving the model")
-        best_model = torch.load("model/best_model")
         best_model = torch.load("model/best_model")
         model.load_state_dict(best_model['model_state_dict'])
 

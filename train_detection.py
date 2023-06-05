@@ -62,8 +62,8 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch):
         running_loss += losses.item()
 
         # Print loss every 1000 batches
-        if i % 1000 == 999:
-            last_loss = running_loss / 1000  # loss per batch
+        if i % 500 == 499:
+            last_loss = running_loss / 500  # loss per batch
             print(f'  batch {i + 1} loss: {last_loss}')
             torch.save({
                 'epoch': epoch,
@@ -108,7 +108,7 @@ def evaluate(model, validation_loader):
                                   'scores': torch.FloatTensor([])}
 
             # for k, _ in enumerate(outputs):
-            # draw_bbox(images[k], targets[k], outputs[k])
+            #    draw_bbox(images[k], targets[k], outputs[k])
 
             metric.update(outputs, targets)
 

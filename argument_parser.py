@@ -6,7 +6,7 @@ def get_args():
     parser = argparse.ArgumentParser()
 
     # Dataset
-    parser.add_argument('--data-path', default='/mnt/beegfs/work/cvcs_2022_group20/SoccerNet-v3', help='Dataset path')
+    parser.add_argument('--data-path', default='/mnt/beegfs/work/cvcs_2022_group20', help='Dataset path')
     parser.add_argument('--train', action='store_true', help='Train the model')
     parser.add_argument('--test', action='store_true', help='Only test the model')
     parser.add_argument('--epochs', default=300, type=int)

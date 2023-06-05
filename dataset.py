@@ -9,22 +9,26 @@ from SoccerNet.utils import getListGames
 import transform as T
 
 CLASS_DICT = {'Ball': 1,
-              'Player': 2,
-              'Goalkeeper': 3,
-              'Referee': 4,
-              'Staff members': 5
-              }
+              'Person': 2}
 
 
 def collate_fn(batch):
     return tuple(zip(*batch))
 
 
+def create_dataloader(dataset, batch_size):
+    batch_sampler = torch.utils.data.BatchSampler(torch.utils.data.RandomSampler(dataset), batch_size=batch_size,
+                                                  drop_last=True)
+    loader = torch.utils.data.DataLoader(dataset, batch_sampler=batch_sampler, collate_fn=collate_fn)
+
+    return loader
+
+
 # Building the dataset
 class SNDetection(torch.utils.data.Dataset):
     def __init__(self, args, split, transform=None):
 
-        self.path = args.data_path
+        self.path = os.path.join(args.data_path, 'SoccerNet-v3')
 
         self.size = ast.literal_eval(args.size)
 
@@ -58,7 +62,6 @@ class SNDetection(torch.utils.data.Dataset):
             # Loop through the game
 
             self.keys = list(self.data[i]['actions'].keys())  # List of images of each game (actions)
-            # self.keys.extend(list(self.data[i]['replays'].keys()))   # and replays images
             self.tot_len = self.tot_len + len(self.keys)
 
             for k in self.keys:
@@ -70,42 +73,25 @@ class SNDetection(torch.utils.data.Dataset):
                 areas = list()
                 iscrowds = list()
 
-                # List containg the bboxes, its value changes depending on the key (k, action/replay)
-                iterate = list()
-                # If it's a replay (0_0.png) get the bboxes from 'replays' key in the json, else from 'actions'
-                if "_" in k:
-                    iterate.extend(self.data[i]['replays'][k]['bboxes'])
-                    # Image ID saved as a float to store information about its replay number
-                    # E.g. 0_0 is the first replay of action 0, and it's saved as a float --> 0.1
-                    image_id = f'{k.split(".")[0].split("_")[0]}.{int(k.split(".")[0].split("_")[1]) + 1}'
+                # Image Id of action 0 is simply 0.0
+                image_id = k.split('.')[0]
 
-                    # Get the original Image size
-                    x = self.data[i]['replays'][k]['imageMetadata']['width']
-                    y = self.data[i]['replays'][k]['imageMetadata']['height']
-                else:
-                    # Image Id of action 0 is simply 0.0
-                    iterate.extend(self.data[i]['actions'][k]['bboxes'])
-                    image_id = k.split('.')[0]
-
-                    # Get the original Image size
-                    x = self.data[i]['actions'][k]['imageMetadata']['width']
-                    y = self.data[i]['actions'][k]['imageMetadata']['height']
+                # Get the original Image size
+                x = self.data[i]['actions'][k]['imageMetadata']['width']
+                y = self.data[i]['actions'][k]['imageMetadata']['height']
 
                 # Get the target size to know the scale factors
                 targetSize = self.size
                 x_scale = targetSize[0] / x
                 y_scale = targetSize[1] / y
 
-                for b in iterate:
+                for b in self.data[i]['actions'][k]['bboxes']:
                     # Loop through the bboxes of each image
 
                     # Merge label for two type of Player, Goalkeeper and Referee
-                    if b['class'].startswith("Player"):
-                        b['class'] = "Player"
-                    elif b['class'].startswith("Goalkeeper"):
-                        b['class'] = "Goalkeeper"
-                    elif b['class'].endswith("referee"):
-                        b['class'] = "Referee"
+
+                    if b['class'].endswith("left") | b['class'].endswith("right") | b['class'].endswith("referee"):
+                        b['class'] = "Person"
 
                     # Verify if the bbox's label is in the dictionary
                     if b['class'] not in CLASS_DICT:
@@ -160,9 +146,10 @@ class SNDetection(torch.utils.data.Dataset):
         return image, target
 
 
-class MPIIDataset:
-    def __init__(self, split, transform=None):
+class MPIIDataset(torch.utils.data.Dataset):
+    def __init__(self, args, split, transform=None):
 
+        self.path = os.path.join(args.data_path, 'MPII')
         self.num_joints = 16
         self.flip_pairs = [[0, 5], [1, 4], [2, 3], [10, 15], [11, 14], [12, 13]]
         self.parent_ids = [1, 2, 6, 6, 3, 4, 6, 6, 7, 8, 11, 12, 7, 7, 13, 14]
@@ -170,18 +157,18 @@ class MPIIDataset:
         self.transform = transform
 
         # Reading annotation file
-        file_name = os.path.join('/mnt/beegfs/work/cvcs_2022_group20/MPII/mpii_annotations/mpii_'
-                                 + self.split + '.json')
-        print(f'Reading annotation file: {file_name}')
-        file = json.load(open(file_name))
+        file_name = os.path.join(f'{self.path}/mpii_annotations/mpii_{self.split}.json')
+        self.data = list(json.load(open(file_name)))
+        self.targets = list()
+        self.full_keys = list()
 
         # Building the dataset
-        self.data = []
-        for a in file:
-            image_name = a['image']
+        for i, ann in enumerate(self.data):
+            image_name = ann['image']
+            self.full_keys.append(os.path.join(f'{self.path}/images/{image_name}'))
 
-            c = np.array(a['center'], dtype=float)
-            s = np.array([a['scale'], a['scale']], dtype=float)
+            c = np.array(ann['center'], dtype=float)
+            s = np.array([ann['scale'], ann['scale']], dtype=float)
 
             # Adjust center/scale slightly to avoid cropping limbs
             if c[0] != -1:
@@ -196,9 +183,9 @@ class MPIIDataset:
             joints_3d_vis = np.zeros((self.num_joints, 3), dtype=float)
 
             if self.split != 'test':
-                joints = np.array(a['joints'])
+                joints = np.array(ann['joints'])
                 joints[:, 0:2] = joints[:, 0:2] - 1
-                joints_vis = np.array(a['joints_vis'])
+                joints_vis = np.array(ann['joints_vis'])
                 assert len(joints) == self.num_joints, \
                     'joint num diff: {} vs {}'.format(len(joints),
                                                       self.num_joints)
@@ -207,12 +194,22 @@ class MPIIDataset:
                 joints_3d_vis[:, 0] = joints_vis[:]
                 joints_3d_vis[:, 1] = joints_vis[:]
 
-            self.data.append({
-                'image': os.path.join('/mnt/beegfs/work/cvcs_2022_group20/MPII/images' + image_name),
+            self.targets.append({
+                'image': self.full_keys[i],
                 'center': c,
                 'scale': s,
                 'joints_3d': joints_3d,
                 'joints_3d_vis': joints_3d_vis
             })
 
-    # TODO: credo sia necessario implementare la funzione __getitem__
+    def __len__(self, ):
+        return len(self.targets)
+
+    def __getitem__(self, idx):
+
+        image = Image.open(self.full_keys[idx]).convert('RGB')
+        target = self.targets[idx]
+
+        # image, target = self.transforms(image, target, self.size)
+
+        return image, target
