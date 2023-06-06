@@ -1,11 +1,14 @@
 import os
 import sys
+
 import torch.utils.data
 import wandb
-from argument_parser import get_args
+from torch import nn
 from torchvision.models import ResNet50_Weights
 from torchvision.models.detection import fasterrcnn_resnet50_fpn, faster_rcnn
+
 import transform as T
+from argument_parser import get_args
 from dataset import SNDetection, collate_fn, create_dataloader
 from train_detection import train_one_epoch_detection, evaluate
 
@@ -19,18 +22,17 @@ def CreateModel():
     # get number of input features for the classifier
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     # replace the pre-trained head with a new one
-    model.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, 3)  # 3 is the numer of dataset classes (3) + 1 (background)
+    model.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, 3)  # 3 is the numer of dataset classes (2) + 1 (background)
 
-    """
-    # Adding dropout to the 2 fully connected layer
-    model.roi_heads.box_head.fc6 = nn.Sequential(
-        model.roi_heads.box_head.fc6,
-        nn.Dropout(p=0.25))
+    if args.dropout:
+        # Adding dropout to the 2 fully connected layer
+        model.roi_heads.box_head.fc6 = nn.Sequential(
+            model.roi_heads.box_head.fc6,
+            nn.Dropout(p=0.15))
 
-    model.roi_heads.box_head.fc7 = nn.Sequential(
-        model.roi_heads.box_head.fc7,
-        nn.Dropout(p=0.25))
-    """
+        model.roi_heads.box_head.fc7 = nn.Sequential(
+            model.roi_heads.box_head.fc7,
+            nn.Dropout(p=0.15))
 
     # Freezing backbone
     model.backbone.requires_grad_(False)
@@ -88,9 +90,9 @@ if __name__ == '__main__':
 
         print("Start training")
 
-        # best_model = torch.load("model/best_model")
-        # best_score = best_model['score']
-        best_score = 0
+        best_model = torch.load("model/best_model")
+        best_score = best_model['score']
+        # best_score = 0
         counter = 0
 
         for epoch in range(args.start_epoch, args.epochs):

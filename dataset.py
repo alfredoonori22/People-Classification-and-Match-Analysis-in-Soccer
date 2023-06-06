@@ -1,6 +1,7 @@
 import ast
 import json
 import os
+
 import numpy as np
 import torch.utils.data
 from PIL import Image
@@ -89,7 +90,6 @@ class SNDetection(torch.utils.data.Dataset):
                     # Loop through the bboxes of each image
 
                     # Merge label for two type of Player, Goalkeeper and Referee
-
                     if b['class'].endswith("left") | b['class'].endswith("right") | b['class'].endswith("referee"):
                         b['class'] = "Person"
 
@@ -114,7 +114,6 @@ class SNDetection(torch.utils.data.Dataset):
                     iscrowds.append(0)
 
                 # Scale the bboxes
-
                 boxes = torch.tensor(boxes)
                 boxes[:, 0::2] = boxes[:, 0::2] * x_scale
                 boxes[:, 1::2] = boxes[:, 1::2] * y_scale
@@ -123,8 +122,7 @@ class SNDetection(torch.utils.data.Dataset):
                             'labels': torch.tensor(labels),
                             'image_id': torch.tensor(float(image_id)),
                             'area': torch.tensor(areas),
-                            'iscrowd': torch.tensor(iscrowds)
-                            }
+                            'iscrowd': torch.tensor(iscrowds)}
 
                 self.targets.append(tmp_dict)
 

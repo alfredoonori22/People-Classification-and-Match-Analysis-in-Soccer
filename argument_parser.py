@@ -18,6 +18,7 @@ def get_args():
     parser.add_argument('--resume', action='store_true', help='Resume from checkpoint')
     parser.add_argument('--start_epoch', type=int, default=0, help='Start epoch')
     parser.add_argument('--patience', type=int, default=10, help='Number of epochs before early stopping')
+    parser.add_argument('--dropout', action='store_true', help='Use dropout in fc layers')
 
     # Optimizer
     parser.add_argument('--momentum', default=0.9, type=float, help='momentum')

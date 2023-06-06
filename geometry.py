@@ -4,6 +4,7 @@ import torch
 from scipy.spatial.distance import cdist
 from sklearn.cluster import KMeans
 from torchvision.transforms import functional
+
 from detection import CreateModel
 
 BALL_DIAMETER = 23
@@ -202,7 +203,7 @@ if __name__ == '__main__':
         bboxes = PeopleDetection(zoomed_image)
 
         if len(bboxes) == 0:
-            cv2.putText(cv_image, "No player nearby", (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0),2)
+            cv2.putText(cv_image, "No player nearby", (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
             out.write(cv_image)
             print("No player nearby")
             continue

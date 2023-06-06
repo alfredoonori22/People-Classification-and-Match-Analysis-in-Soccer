@@ -1,7 +1,9 @@
 import os
 import sys
+
 import torch.utils.data
 import wandb
+
 from argument_parser import get_args
 from dataset import create_dataloader, MPIIDataset
 
@@ -146,4 +148,3 @@ if __name__ == '__main__':
 
     if not (args.train or args.test):
         sys.exit("Error: invalid split given")
-
