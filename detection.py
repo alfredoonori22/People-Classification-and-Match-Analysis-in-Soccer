@@ -54,6 +54,10 @@ if __name__ == '__main__':
 
     model = CreateModel()
 
+    folder = "model"
+    if args.dropout:
+        folder = "model_dropout"
+
     # Choosing split
     if args.train:
         # Initialization and Configuration wandb
@@ -82,7 +86,7 @@ if __name__ == '__main__':
         # Resuming
         if args.resume:
             print("Resuming")
-            checkpoint = torch.load("model/checkpoint_detection")
+            checkpoint = torch.load(f"{folder}/checkpoint_detection")
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             args.start_epoch = checkpoint['epoch'] + 1
@@ -90,7 +94,7 @@ if __name__ == '__main__':
 
         print("Start training")
 
-        best_model = torch.load("model/best_model")
+        best_model = torch.load(f"{folder}/best_model")
         best_score = best_model['score']
         # best_score = 0
         counter = 0
@@ -98,7 +102,7 @@ if __name__ == '__main__':
         for epoch in range(args.start_epoch, args.epochs):
             print(f'EPOCH: {epoch + 1}')
 
-            loss = train_one_epoch_detection(model, optimizer, training_loader, epoch)
+            loss = train_one_epoch_detection(model, optimizer, training_loader, epoch, folder)
 
             # Define our custom x axis metric
             wandb.define_metric("epoch")
@@ -112,7 +116,7 @@ if __name__ == '__main__':
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': loss,
-            }, "model/checkpoint_detection")
+            }, f"{folder}/checkpoint_detection")
 
             print("Start validation")
             # Validation at the end of each epoch
@@ -132,7 +136,7 @@ if __name__ == '__main__':
                 torch.save({
                     'model_state_dict': model.state_dict(),
                     'score': score,
-                }, "model/best_model")
+                }, f"{folder}/best_model")
 
                 counter = 0
             else:
@@ -159,7 +163,7 @@ if __name__ == '__main__':
 
         # Retrieving the model
         print("Retrieving the model")
-        best_model = torch.load("model/best_model")
+        best_model = torch.load(f"{folder}/best_model")
         model.load_state_dict(best_model['model_state_dict'])
 
         print('Testing the model')
