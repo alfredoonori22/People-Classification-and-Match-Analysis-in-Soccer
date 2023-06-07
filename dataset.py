@@ -226,3 +226,46 @@ class MPIIDataset(torch.utils.data.Dataset):
         # image, target = self.transforms(image, target, self.size)
 
         return image, target
+
+
+# Building Dataset for Football People for recognizing the class
+class Football_People(torch.utils.data.Dataset):
+    def __init__(self, args, split, transform=None):
+
+        self.path = os.path.join(args.data_path, 'Football_People')
+        self.size = args.size
+        # t will be the list containg all the pre-process operation
+        t = [T.ResizeImg()]
+        # if there are other operation they are appended
+        if transform is not None:
+            t.extend(transform)
+        # Compose make the list a callable
+        self.transforms = T.Compose(t)
+
+        # Read annotation file
+        self.data = list(json.load(open(os.path.join(self.path, f"Labels-{split}.json"))))
+        self.targets = list()
+        self.full_keys = list()
+
+        # Building the dataset
+        for i, ann in enumerate(self.data):
+            image_name = ann['image_id']
+            self.full_keys.append(os.path.join(f'{self.path}/{split}-images/{image_name}'))
+
+            self.targets.append({
+                'image': self.full_keys[i],
+                'label': ann['label']
+            })
+
+    def __len__(self, ):
+        return len(self.targets)
+
+    def __getitem__(self, idx):
+
+        image = Image.open(self.full_keys[idx]).convert('RGB')
+        target = self.targets[idx]
+
+        # TODO: prendiamo la size da args o la lasciamo fissa qui?
+        image, target = self.transforms(image, target, (80, 40))
+
+        return image, target

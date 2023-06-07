@@ -7,7 +7,7 @@ from argument_parser import get_args
 from torchvision.models import ResNet50_Weights
 from torchvision.models.detection import fasterrcnn_resnet50_fpn, faster_rcnn
 import transform as T
-from dataset import SNDetection, collate_fn, create_dataloader
+from dataset import SNDetection, collate_fn, create_dataloader, Football_People
 from train_detection import train_one_epoch_detection, evaluate
 
 os.environ["WANDB_SILENT"] = "true"
@@ -66,6 +66,7 @@ if __name__ == '__main__':
         folder = "model_multi_dropout"
 
     # Choosing split
+
     if args.train:
         # Initialization and Configuration wandb
         wandb.init(project="SoccerNet",
@@ -81,8 +82,8 @@ if __name__ == '__main__':
 
         # Data Loading Code
         print('Loading Data for Detection Training')
-        dataset_train = SNDetection(args, split='train', transform=T.get_transform("train"))
-        dataset_valid = SNDetection(args, split='valid', transform=T.get_transform("valid"))
+        dataset_train = SNDetection(args, split='train', transform=T.get_transform("train", "detection"))
+        dataset_valid = SNDetection(args, split='valid', transform=T.get_transform("valid", "detection"))
 
         training_loader = create_dataloader(dataset_train, args.batch_size)
         validation_loader = create_dataloader(dataset_valid, args.batch_size)
@@ -162,7 +163,7 @@ if __name__ == '__main__':
 
         # Data Loading Code
         print('Loading Data for Detection Test')
-        dataset_test = SNDetection(args, split='test', transform=T.get_transform("test"))
+        dataset_test = SNDetection(args, split='test', transform=T.get_transform("test", "detection"))
 
         print("Creating data loader")
         test_batch_sampler = torch.utils.data.BatchSampler(
