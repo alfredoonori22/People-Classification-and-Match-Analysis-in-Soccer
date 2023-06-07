@@ -34,7 +34,7 @@ def apply_nms(orig_prediction, iou_thresh=0.3):
     return final_prediction
 
 
-def train_one_epoch_detection(model, optimizer, training_loader, epoch):
+def train_one_epoch_detection(model, optimizer, training_loader, epoch, folder):
     running_loss = 0.0
     last_loss = 0.0
 
@@ -70,7 +70,7 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch):
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': running_loss,
-            }, "model/checkpoint_detection")
+            }, f"{folder}/checkpoint_detection")
             running_loss = 0.0
 
     return last_loss
@@ -81,7 +81,7 @@ def evaluate(model, validation_loader):
 
     with torch.inference_mode():
         # Validation metric
-        metric = MeanAveragePrecision(class_metrics=True)
+        metric = MeanAveragePrecision(class_metrics=True, iou_thresholds=[0.5])
 
         for i, (images, targets) in enumerate(validation_loader):
             # Singol batch's score

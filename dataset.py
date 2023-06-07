@@ -8,8 +8,15 @@ from SoccerNet.utils import getListGames
 
 import transform as T
 
+# Model with only two classes
+"""CLASS_DICT = {'Ball': 1,
+              'Person': 2}"""
+
+# Multi-class model
 CLASS_DICT = {'Ball': 1,
-              'Person': 2}
+              'Player': 2,
+              'Goalkeeper': 3,
+              'Referee': 4}
 
 
 def collate_fn(batch):
@@ -88,10 +95,18 @@ class SNDetection(torch.utils.data.Dataset):
                 for b in self.data[i]['actions'][k]['bboxes']:
                     # Loop through the bboxes of each image
 
+                    # Multi-class version
                     # Merge label for two type of Player, Goalkeeper and Referee
+                    if b['class'].startswith("Player"):
+                        b['class'] = "Player"
+                    elif b['class'].startswith("Goalkeeper"):
+                        b['class'] = "Goalkeeper"
+                    elif b['class'].endswith("referee"):
+                        b['class'] = "Referee"
 
-                    if b['class'].endswith("left") | b['class'].endswith("right") | b['class'].endswith("referee"):
-                        b['class'] = "Person"
+                    # Two-class version
+                    """if b['class'].endswith("left") | b['class'].endswith("right") | b['class'].endswith("referee"):
+                        b['class'] = "Person"""
 
                     # Verify if the bbox's label is in the dictionary
                     if b['class'] not in CLASS_DICT:
@@ -114,7 +129,6 @@ class SNDetection(torch.utils.data.Dataset):
                     iscrowds.append(0)
 
                 # Scale the bboxes
-
                 boxes = torch.tensor(boxes)
                 boxes[:, 0::2] = boxes[:, 0::2] * x_scale
                 boxes[:, 1::2] = boxes[:, 1::2] * y_scale
@@ -123,8 +137,7 @@ class SNDetection(torch.utils.data.Dataset):
                             'labels': torch.tensor(labels),
                             'image_id': torch.tensor(float(image_id)),
                             'area': torch.tensor(areas),
-                            'iscrowd': torch.tensor(iscrowds)
-                            }
+                            'iscrowd': torch.tensor(iscrowds)}
 
                 self.targets.append(tmp_dict)
 

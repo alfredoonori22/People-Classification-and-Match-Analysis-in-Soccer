@@ -2,6 +2,7 @@ import os
 import sys
 import torch.utils.data
 import wandb
+from torch import nn
 from argument_parser import get_args
 from torchvision.models import ResNet50_Weights
 from torchvision.models.detection import fasterrcnn_resnet50_fpn, faster_rcnn
@@ -18,19 +19,22 @@ def CreateModel():
 
     # get number of input features for the classifier
     in_features = model.roi_heads.box_predictor.cls_score.in_features
+
     # replace the pre-trained head with a new one
-    model.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, 3)  # 3 is the numer of dataset classes (3) + 1 (background)
+    # Multi-class model
+    model.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, 5)  # 5 is the numer of dataset classes (4) + 1 (background)
+    # Two-class model
+    """model.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(in_features, 3)  # 3 is the numer of dataset classes (2) + 1 (background)"""
 
-    """
-    # Adding dropout to the 2 fully connected layer
-    model.roi_heads.box_head.fc6 = nn.Sequential(
-        model.roi_heads.box_head.fc6,
-        nn.Dropout(p=0.25))
+    if args.dropout:
+        # Adding dropout to the 2 fully connected layer
+        model.roi_heads.box_head.fc6 = nn.Sequential(
+            model.roi_heads.box_head.fc6,
+            nn.Dropout(p=0.15))
 
-    model.roi_heads.box_head.fc7 = nn.Sequential(
-        model.roi_heads.box_head.fc7,
-        nn.Dropout(p=0.25))
-    """
+        model.roi_heads.box_head.fc7 = nn.Sequential(
+            model.roi_heads.box_head.fc7,
+            nn.Dropout(p=0.15))
 
     # Freezing backbone
     model.backbone.requires_grad_(False)
@@ -52,6 +56,15 @@ if __name__ == '__main__':
 
     model = CreateModel()
 
+    # Two-class version
+    """folder = "model"""
+    # Multi-class version
+    folder = "model_multi"
+
+    if args.dropout:
+        """folder = "model_dropout"""
+        folder = "model_multi_dropout"
+
     # Choosing split
     if args.train:
         # Initialization and Configuration wandb
@@ -63,6 +76,7 @@ if __name__ == '__main__':
                        'batch_size': args.batch_size,
                        'architecture': 'fasterrcnn_resnet50_fpn'
                    })
+
         print('Train phase for Detection task')
 
         # Data Loading Code
@@ -80,7 +94,7 @@ if __name__ == '__main__':
         # Resuming
         if args.resume:
             print("Resuming")
-            checkpoint = torch.load("model/checkpoint_detection")
+            checkpoint = torch.load(f"{folder}/checkpoint_detection")
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             args.start_epoch = checkpoint['epoch'] + 1
@@ -88,15 +102,15 @@ if __name__ == '__main__':
 
         print("Start training")
 
-        # best_model = torch.load("model/best_model")
-        # best_score = best_model['score']
-        best_score = 0
+        best_model = torch.load(f"{folder}/best_model")
+        best_score = best_model['score']
+        # best_score = 0
         counter = 0
 
         for epoch in range(args.start_epoch, args.epochs):
             print(f'EPOCH: {epoch + 1}')
 
-            loss = train_one_epoch_detection(model, optimizer, training_loader, epoch)
+            loss = train_one_epoch_detection(model, optimizer, training_loader, epoch, folder)
 
             # Define our custom x axis metric
             wandb.define_metric("epoch")
@@ -104,13 +118,14 @@ if __name__ == '__main__':
             # Update wandb
             wandb.log({'training_loss': loss, 'epoch': epoch})
 
+
             # Save the model at the end of the epoch
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': loss,
-            }, "model/checkpoint_detection")
+            }, f"{folder}/checkpoint_detection")
 
             print("Start validation")
             # Validation at the end of each epoch
@@ -130,7 +145,7 @@ if __name__ == '__main__':
                 torch.save({
                     'model_state_dict': model.state_dict(),
                     'score': score,
-                }, "model/best_model")
+                }, f"{folder}/best_model")
 
                 counter = 0
             else:
@@ -157,7 +172,7 @@ if __name__ == '__main__':
 
         # Retrieving the model
         print("Retrieving the model")
-        best_model = torch.load("model/best_model")
+        best_model = torch.load(f"{folder}/best_model")
         model.load_state_dict(best_model['model_state_dict'])
 
         print('Testing the model')
