@@ -4,10 +4,10 @@ import torch
 from torchvision.transforms import Resize, functional, ColorJitter
 
 
-def get_transform(split, task):
-    if split == "train" and task == "detection":
+def get_transform(split, nn):
+    if split == "train" and nn == "fasterrcnn":
         return [RandomHorizontalFlip(), RandomPhotometricDistort(), ToTensor()]
-    elif split == "train" and task == "fb_people":
+    elif split == "train" and nn == "cnn":
         return [RandomPhotometricDistort(), ToTensor()]
     else:
         return [ToTensor()]

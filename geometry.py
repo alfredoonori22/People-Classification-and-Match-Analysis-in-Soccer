@@ -5,7 +5,7 @@ from scipy.spatial.distance import cdist
 from sklearn.cluster import KMeans
 from torchvision.transforms import functional
 
-from detection import CreateModel
+from models import create_fasterrcnn
 
 BALL_DIAMETER = 23
 
@@ -128,8 +128,8 @@ def ShirtColor(image, bbox):
 if __name__ == '__main__':
 
     # Retrieving best model
-    model = CreateModel()
-    best_model = torch.load('/mnt/beegfs/work/cvcs_2022_group20/model/best_model')
+    model = create_fasterrcnn(dropout=False, num_classes=3)
+    best_model = torch.load('/mnt/beegfs/work/cvcs_2022_group20/models/model/best_model')
     model.load_state_dict(best_model['model_state_dict'])
     model.eval()
 

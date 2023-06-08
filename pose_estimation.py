@@ -5,7 +5,7 @@ import torch.utils.data
 import wandb
 
 from argument_parser import get_args
-from dataset import create_dataloader, MPIIDataset
+from datasets import create_dataloader, MPIIDataset
 
 os.environ["WANDB_SILENT"] = "true"
 

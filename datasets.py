@@ -1,34 +1,14 @@
 import ast
 import json
 import os
+
 import numpy as np
 import torch.utils.data
 from PIL import Image
 from SoccerNet.utils import getListGames
 
 import transform as T
-
-# Model with only two classes
-"""CLASS_DICT = {'Ball': 1,
-              'Person': 2}"""
-
-# Multi-class model
-CLASS_DICT = {'Ball': 1,
-              'Player': 2,
-              'Goalkeeper': 3,
-              'Referee': 4}
-
-
-def collate_fn(batch):
-    return tuple(zip(*batch))
-
-
-def create_dataloader(dataset, batch_size):
-    batch_sampler = torch.utils.data.BatchSampler(torch.utils.data.RandomSampler(dataset), batch_size=batch_size,
-                                                  drop_last=True)
-    loader = torch.utils.data.DataLoader(dataset, batch_sampler=batch_sampler, collate_fn=collate_fn)
-
-    return loader
+from utils import CLASS_DICT, MULTI_CLASS_DICT, PEOPLE_DICT
 
 
 # Building the dataset
@@ -59,9 +39,6 @@ class SNDetection(torch.utils.data.Dataset):
         self.targets = list()
         self.labels = list()
 
-        # Variable for the total length of the dataset
-        self.tot_len = 0
-
         # Variable that stores the full name of each image (ex, 'path/0.png')
         self.full_keys = list()
 
@@ -69,7 +46,6 @@ class SNDetection(torch.utils.data.Dataset):
             # Loop through the game
 
             self.keys = list(self.data[i]['actions'].keys())  # List of images of each game (actions)
-            self.tot_len = self.tot_len + len(self.keys)
 
             for k in self.keys:
                 # Loop through the images
@@ -95,22 +71,33 @@ class SNDetection(torch.utils.data.Dataset):
                 for b in self.data[i]['actions'][k]['bboxes']:
                     # Loop through the bboxes of each image
 
-                    # Multi-class version
                     # Merge label for two type of Player, Goalkeeper and Referee
-                    if b['class'].startswith("Player"):
-                        b['class'] = "Player"
-                    elif b['class'].startswith("Goalkeeper"):
-                        b['class'] = "Goalkeeper"
-                    elif b['class'].endswith("referee"):
-                        b['class'] = "Referee"
+                    if args.multiclass:
+                        # Multi-class version
+                        if b['class'].startswith("Player"):
+                            b['class'] = "Player"
+                        elif b['class'].startswith("Goalkeeper"):
+                            b['class'] = "Goalkeeper"
+                        elif b['class'].endswith("referee"):
+                            b['class'] = "Referee"
 
-                    # Two-class version
-                    """if b['class'].endswith("left") | b['class'].endswith("right") | b['class'].endswith("referee"):
-                        b['class'] = "Person"""
+                        if b['class'] not in MULTI_CLASS_DICT:
+                            continue
 
-                    # Verify if the bbox's label is in the dictionary
-                    if b['class'] not in CLASS_DICT:
-                        continue
+                        # Creating a list of image's labels
+                        self.labels.append(MULTI_CLASS_DICT[b['class']])
+                        labels.append(MULTI_CLASS_DICT[b['class']])
+                    else:
+                        # Two-class version
+                        if b['class'].endswith("left") | b['class'].endswith("right") | b['class'].endswith("referee"):
+                            b['class'] = "Person"
+
+                        if b['class'] not in CLASS_DICT:
+                            continue
+
+                        # Creating a list of image's labels
+                        self.labels.append(CLASS_DICT[b['class']])
+                        labels.append(CLASS_DICT[b['class']])
 
                     # Descard degenerate bboxes (we assure that xmin < xmax and the same for y)
                     if (b['points']['x2'] <= b['points']['x1']) or (b['points']['y2'] <= b['points']['y1']):
@@ -118,10 +105,6 @@ class SNDetection(torch.utils.data.Dataset):
                     else:
                         # Creating a list with the points of the bboxes
                         boxes.append([b['points']['x1'], b['points']['y1'], b['points']['x2'], b['points']['y2']])
-
-                    # Creating a list of image's labels
-                    self.labels.append(CLASS_DICT[b['class']])
-                    labels.append(CLASS_DICT[b['class']])
 
                     # Calculate bbox area
                     a = (b['points']['x2'] - b['points']['x1']) * (b['points']['y2'] - b['points']['y1'])
@@ -133,13 +116,11 @@ class SNDetection(torch.utils.data.Dataset):
                 boxes[:, 0::2] = boxes[:, 0::2] * x_scale
                 boxes[:, 1::2] = boxes[:, 1::2] * y_scale
 
-                tmp_dict = {'boxes': boxes,
-                            'labels': torch.tensor(labels),
-                            'image_id': torch.tensor(float(image_id)),
-                            'area': torch.tensor(areas),
-                            'iscrowd': torch.tensor(iscrowds)}
-
-                self.targets.append(tmp_dict)
+                self.targets.append({'boxes': boxes,
+                                     'labels': torch.tensor(labels),
+                                     'image_id': torch.tensor(float(image_id)),
+                                     'area': torch.tensor(areas),
+                                     'iscrowd': torch.tensor(iscrowds)})
 
         self.labels = [i for i in set(self.labels) if i > 0]
 
@@ -147,7 +128,47 @@ class SNDetection(torch.utils.data.Dataset):
         return len(self.labels)
 
     def __len__(self, ):
-        return self.tot_len
+        return len(self.targets)
+
+    def __getitem__(self, idx):
+
+        image = Image.open(self.full_keys[idx]).convert('RGB')
+        target = self.targets[idx]
+
+        image, target = self.transforms(image, target, self.size)
+
+        return image, target
+
+
+# Building Dataset for Football People to recognize people classes
+class Football_People(torch.utils.data.Dataset):
+    def __init__(self, args, split, transform=None):
+
+        self.path = os.path.join(args.data_path, 'Football_People')
+        self.size = ast.literal_eval(args.size)
+
+        # t will be the list containg all the pre-process operation
+        t = [T.ResizeImg()]
+        # if there are other operation they are appended
+        if transform is not None:
+            t.extend(transform)
+        # Compose make the list a callable
+        self.transforms = T.Compose(t)
+
+        # Read annotation file
+        self.data = list(json.load(open(os.path.join(self.path, f"Labels-{split}.json"))))
+        self.targets = list()
+        self.full_keys = list()
+
+        # Building the dataset
+        for ann in self.data:
+            image_name = ann['image_id']
+            self.full_keys.append(os.path.join(f'{self.path}/{split}-images/{image_name}'))
+
+            self.targets.append(torch.tensor(PEOPLE_DICT[ann['label']]))
+
+    def __len__(self, ):
+        return len(self.targets)
 
     def __getitem__(self, idx):
 
@@ -224,48 +245,5 @@ class MPIIDataset(torch.utils.data.Dataset):
         target = self.targets[idx]
 
         # image, target = self.transforms(image, target, self.size)
-
-        return image, target
-
-
-# Building Dataset for Football People for recognizing the class
-class Football_People(torch.utils.data.Dataset):
-    def __init__(self, args, split, transform=None):
-
-        self.path = os.path.join(args.data_path, 'Football_People')
-        self.size = args.size
-        # t will be the list containg all the pre-process operation
-        t = [T.ResizeImg()]
-        # if there are other operation they are appended
-        if transform is not None:
-            t.extend(transform)
-        # Compose make the list a callable
-        self.transforms = T.Compose(t)
-
-        # Read annotation file
-        self.data = list(json.load(open(os.path.join(self.path, f"Labels-{split}.json"))))
-        self.targets = list()
-        self.full_keys = list()
-
-        # Building the dataset
-        for i, ann in enumerate(self.data):
-            image_name = ann['image_id']
-            self.full_keys.append(os.path.join(f'{self.path}/{split}-images/{image_name}'))
-
-            self.targets.append({
-                'image': self.full_keys[i],
-                'label': ann['label']
-            })
-
-    def __len__(self, ):
-        return len(self.targets)
-
-    def __getitem__(self, idx):
-
-        image = Image.open(self.full_keys[idx]).convert('RGB')
-        target = self.targets[idx]
-
-        # TODO: prendiamo la size da args o la lasciamo fissa qui?
-        image, target = self.transforms(image, target, (80, 40))
 
         return image, target

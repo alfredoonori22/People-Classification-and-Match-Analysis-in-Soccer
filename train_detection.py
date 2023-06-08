@@ -1,48 +1,18 @@
-import cv2
-import numpy as np
 import torch
-import torchvision
+from torch.nn import CrossEntropyLoss
+from torchmetrics import F1Score
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
-from torchvision.transforms import ToPILImage
 
-from dataset import CLASS_DICT
-
-
-def draw_bbox(image, target, output):
-    image = image.cpu()
-    image = ToPILImage()(image)
-    image = np.array(image)
-    keys = list(CLASS_DICT.keys())
-
-    for i, (x1, y1, x2, y2) in enumerate(output['boxes']):
-        cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 2)
-        index = (list(CLASS_DICT.values()).index(int(output['labels'][i])))
-        cv2.putText(image, keys[index], (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
-    for (x1, y1, x2, y2) in target['boxes']:
-        cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
-
-    cv2.imwrite(f"images/bbox-{target['image_id']}.png", image)
+from utils import apply_nms
 
 
-def apply_nms(orig_prediction, iou_thresh=0.3):
-    # torchvision returns the indices of the bboxes to keep
-    keep = torchvision.ops.nms(orig_prediction['boxes'], orig_prediction['scores'], iou_thresh)
-    final_prediction = orig_prediction
-    final_prediction['boxes'] = final_prediction['boxes'][keep]
-    final_prediction['scores'] = final_prediction['scores'][keep]
-    final_prediction['labels'] = final_prediction['labels'][keep]
-
-    return final_prediction
-
-
-def train_one_epoch_detection(model, optimizer, training_loader, epoch, folder):
+def train_one_epoch_fasterrcnn(model, optimizer, training_loader, epoch, folder):
     running_loss = 0.0
     last_loss = 0.0
 
     # Make sure gradient tracking is on, and do a pass over the data
     model.train()
 
-    # enumerate(tqdm(training_loader, file=sys.stdout))            enumerate(training_loader)
     for i, (images, targets) in enumerate(training_loader):
         # Every data instance is an image + target pair
         images = list(image.cuda() for image in images)
@@ -63,21 +33,61 @@ def train_one_epoch_detection(model, optimizer, training_loader, epoch, folder):
         running_loss += losses.item()
 
         # Print loss every 1000 batches
-        if i % 500 == 499:
-            last_loss = running_loss / 500  # loss per batch
+        if i % 1000 == 999:
+            last_loss = running_loss / 1000  # loss per batch
             print(f'  batch {i + 1} loss: {last_loss}')
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': running_loss,
+                'optimizer_state_dict': optimizer.state_dict()
             }, f"{folder}/checkpoint_detection")
             running_loss = 0.0
 
     return last_loss
 
 
-def evaluate(model, validation_loader):
+def train_one_epoch_cnn(model, optimizer, training_loader, epoch, folder):
+    running_loss = 0.0
+    last_loss = 0.0
+
+    # Make sure gradient tracking is on, and do a pass over the data
+    model.train()
+
+    for i, (images, targets) in enumerate(training_loader):
+        # Every data instance is an image + target pair
+        images = torch.stack([image.cuda() for image in images])
+
+        # Make predictions for this batch
+        outputs = model(images)
+        outputs = outputs.cpu()
+
+        # Zero your gradients for every batch!
+        optimizer.zero_grad()
+
+        # Compute the loss and its gradients
+        loss = CrossEntropyLoss()(outputs, targets)
+        loss.backward()
+
+        # Adjust learning weights
+        optimizer.step()
+
+        # Gather data
+        running_loss += loss.item()
+
+        if i % 1000 == 999:
+            last_loss = running_loss / 1000  # loss per batch
+            print(f'  batch {i + 1} loss: {last_loss}')
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict()
+            }, f"{folder}/checkpoint_detection")
+            running_loss = 0.0
+
+    return last_loss
+
+
+def evaluate_fasterrcnn(model, validation_loader):
     model.eval()
 
     with torch.inference_mode():
@@ -108,7 +118,7 @@ def evaluate(model, validation_loader):
                                   'labels': torch.FloatTensor([]),
                                   'scores': torch.FloatTensor([])}
 
-            #for k, _ in enumerate(outputs):
+            # for k, _ in enumerate(outputs):
             #    draw_bbox(images[k], targets[k], outputs[k])
 
             metric.update(outputs, targets)
@@ -117,3 +127,22 @@ def evaluate(model, validation_loader):
         print(res)
 
     return res['map']
+
+
+def evaluate_cnn(model, validation_loader):
+    model.eval()
+    metric = F1Score(num_classes=3, average=None, task="multiclass")
+
+    with torch.inference_mode():
+        for i, (images, targets) in enumerate(validation_loader):
+            # Singol batch's score
+            images = torch.stack([image.cuda() for image in images])
+
+            # Predict the output
+            outputs = model(images)
+            _, pred = torch.max(torch.exp(outputs.cpu()), 1)
+            metric.update(pred, targets)
+
+        res = metric.compute()
+
+    return res
