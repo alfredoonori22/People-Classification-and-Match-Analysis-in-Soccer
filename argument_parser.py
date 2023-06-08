@@ -14,6 +14,11 @@ def get_args():
     parser.add_argument('--tiny', required=False, type=int, default=None, help='Select a subset of x games')
     parser.add_argument('--size', type=str, default="(1920,1080)", help='Target dimension for image pre-processing')
 
+    # Model
+    parser.add_argument('--model', type=str, default='fasterrcnn', help='fasterrcnn or cnn')
+    parser.add_argument('--dropout', action='store_true', help='Use dropout in fc layers')
+    parser.add_argument('--multiclass', action='store_true', help='If true differentiate between people')
+
     # Training
     parser.add_argument('--resume', action='store_true', help='Resume from checkpoint')
     parser.add_argument('--start_epoch', type=int, default=0, help='Start epoch')
