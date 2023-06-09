@@ -1,13 +1,12 @@
 import sys
 
 import torch.utils.data
-import wandb
 
 import transform as T
 from datasets import SNDetection
 from models import create_fasterrcnn
 from train_detection import train_one_epoch_fasterrcnn, evaluate_fasterrcnn
-from utils import collate_fn, create_dataloader
+from utils import create_dataloader
 
 
 def detection_fasterrcnn(args, folder):
@@ -20,13 +19,13 @@ def detection_fasterrcnn(args, folder):
     # Choosing split
     if args.train:
         # Initialization and Configuration wandb
-        wandb.init(project="SoccerNet",
+        """wandb.init(project="SoccerNet",
                    name="Detection Faster-RCNN",
                    config={
                        'multiclass': args.multiclass,
                        'dropout': args.dropout,
                        'architecture': 'fasterrcnn_resnet50_fpn'
-                   })
+                   })"""
         print('Train phase for Detection task')
 
         # Data Loading Code
@@ -62,11 +61,11 @@ def detection_fasterrcnn(args, folder):
             loss = train_one_epoch_fasterrcnn(model, optimizer, training_loader, epoch, folder)
 
             # Define our custom x axis metric
-            wandb.define_metric("epoch")
+            """wandb.define_metric("epoch")
             wandb.define_metric("training_loss", step_metric='epoch', goal='minimize')
             # Update wandb
             wandb.log({'training_loss': loss, 'epoch': epoch})
-
+            """
             # Save the model at the end of the epoch
             torch.save({
                 'epoch': epoch,
@@ -80,9 +79,9 @@ def detection_fasterrcnn(args, folder):
             score = round(float(score) * 100, 2)
 
             # Update wandb
-            wandb.define_metric("validation_mAP", step_metric='epoch', goal='maximize')
+            """wandb.define_metric("validation_mAP", step_metric='epoch', goal='maximize')
             wandb.log({'validation_mAP': score, 'epoch': epoch})
-
+            """
             print(f'valid mAP: {score}')
 
             # If score is better than the saved one, update it and save the model
@@ -102,7 +101,7 @@ def detection_fasterrcnn(args, folder):
                 print('Early stropping')
                 break
 
-        wandb.finish()
+        # wandb.finish()
 
     if args.test:
         print('Test phase for Detection task')
@@ -112,10 +111,7 @@ def detection_fasterrcnn(args, folder):
         dataset_test = SNDetection(args, split='test', transform=T.get_transform("test", nn))
 
         print("Creating data loader")
-        test_batch_sampler = torch.utils.data.BatchSampler(torch.utils.data.SequentialSampler(dataset_test),
-                                                           batch_size=args.batch_size, drop_last=True)
-        test_loader = torch.utils.data.DataLoader(dataset_test, batch_sampler=test_batch_sampler,
-                                                  collate_fn=collate_fn)
+        test_loader = create_dataloader(dataset_test, args.batch_size)
 
         # Retrieving the model
         print("Retrieving the model")

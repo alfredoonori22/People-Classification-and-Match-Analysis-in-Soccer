@@ -129,7 +129,7 @@ if __name__ == '__main__':
 
     # Retrieving best model
     model = create_fasterrcnn(dropout=False, num_classes=3)
-    best_model = torch.load('/mnt/beegfs/work/cvcs_2022_group20/models/model/best_model')
+    best_model = torch.load('/mnt/beegfs/homes/aonori/SoccerNet/models/model/best_model')
     model.load_state_dict(best_model['model_state_dict'])
     model.eval()
 
@@ -139,9 +139,12 @@ if __name__ == '__main__':
     # Create output video
     out = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 10, (cv_image.shape[1], cv_image.shape[0]))
 
-    while success:
+    while True:
         # Read frame from video
         success, cv_image = video.read()
+        if not success:
+            break
+
         # Image pre-processing
         image = functional.to_tensor(cv_image)
         image = image.cuda()

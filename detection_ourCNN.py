@@ -1,14 +1,13 @@
 import sys
 
 import torch.utils.data
-import wandb
 from torch.utils.data import DataLoader, SubsetRandomSampler
 
 import transform as T
 from datasets import SNDetection, Football_People
-from models import our_CNN
+from models import our_CNN, create_fasterrcnn
 from train_detection import train_one_epoch_cnn, evaluate_cnn
-from utils import collate_fn, create_dataloader
+from utils import create_dataloader
 
 
 def detection_cnn(args, folder):
@@ -21,13 +20,15 @@ def detection_cnn(args, folder):
     # Choosing split
     if args.train:
         # Initialization and Configuration wandb
-        wandb.init(project="SoccerNet",
+        """
+            wandb.init(project="SoccerNet",
                    name="Detection CNN",
                    config={
                        'multiclass': args.multiclass,
                        'dropout': args.dropout,
                        'architecture': 'our CNN'
                    })
+        """
         print('Train phase for our CNN')
 
         # Data Loading Code
@@ -36,8 +37,8 @@ def detection_cnn(args, folder):
         dataset_valid = Football_People(args, split='valid', transform=T.get_transform("valid", nn))
 
         if args.tiny is not None:
-            indices = torch.randperm(len(dataset_train))[:400]
-            indices_valid = torch.randperm(len(dataset_valid))[:100]
+            indices = torch.randperm(len(dataset_train))[:40]
+            indices_valid = torch.randperm(len(dataset_valid))[:8]
 
             training_loader = DataLoader(dataset_train, batch_size=4, sampler=SubsetRandomSampler(indices))
             validation_loader = DataLoader(dataset_valid, batch_size=4, sampler=SubsetRandomSampler(indices_valid))
@@ -49,6 +50,9 @@ def detection_cnn(args, folder):
         params = [p for p in model.parameters() if p.requires_grad]
         optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
+        best_score = 0
+        counter = 0
+
         # Resuming
         if args.resume:
             print("Resuming")
@@ -57,23 +61,22 @@ def detection_cnn(args, folder):
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             args.start_epoch = checkpoint['epoch'] + 1
 
-        print("Start training")
+            best_model = torch.load(f"cnn/best_model")
+            best_score = best_model['score']
 
-        # best_model = torch.load(f"cnn/best_model")
-        # best_score = best_model['score']
-        best_score = 0
-        counter = 0
+        print("Start training")
 
         for epoch in range(args.start_epoch, args.epochs):
             print(f'EPOCH: {epoch + 1}')
 
             loss = train_one_epoch_cnn(model, optimizer, training_loader, epoch, folder)
             # Define our custom x axis metric
+            """
             wandb.define_metric("epoch")
             wandb.define_metric("training_loss", step_metric='epoch', goal='minimize')
             # Update wandb
             wandb.log({'training_loss': loss, 'epoch': epoch})
-
+            """
             # Save the model at the end of the epoch
             torch.save({
                 'epoch': epoch,
@@ -85,13 +88,10 @@ def detection_cnn(args, folder):
             # Validation at the end of each epoch
             score = evaluate_cnn(model, validation_loader)
 
-            breakpoint()
-
             score = round(float(score) * 100, 2)
 
-            """
             # Update wandb
-            wandb.define_metric("validation_mAP", step_metric='epoch', goal='maximize')
+            """wandb.define_metric("validation_mAP", step_metric='epoch', goal='maximize')
             wandb.log({'validation_mAP': score, 'epoch': epoch})
             """
             print(f'valid F1 Score: {score}')
@@ -116,22 +116,26 @@ def detection_cnn(args, folder):
         # wandb.finish()
 
     if args.test:
-        print('Test phase for Detection task')
+        print('Test phase for our CNN')
 
         # Data Loading Code
-        print('Loading Data for Detection Test')
-        dataset_test = SNDetection(args, split='test', transform=T.get_transform("test", nn))
+        print('Loading Data for Detection test')
+        dataset_test = SNDetection(args, split='test', transform=T.get_transform("test", "fasterrcnn"))
 
         print("Creating data loader")
-        test_batch_sampler = torch.utils.data.BatchSampler(
-            torch.utils.data.SequentialSampler(dataset_test), batch_size=args.batch_size, drop_last=True)
-        test_loader = torch.utils.data.DataLoader(dataset_test, batch_sampler=test_batch_sampler,
-                                                  collate_fn=collate_fn)
+        test_loader = create_dataloader(dataset_test, args.batch_size)
+
+        print("Retrieving the Faster-RCNN model")
+        best_model = torch.load(f"models/model/best_model")
+        fasterrcnn = create_fasterrcnn(dropout=False, num_classes=3)
+        fasterrcnn.load_state_dict(best_model['model_state_dict'])
 
         # Retrieving the model
-        print("Retrieving the model")
+        print("Retrieving the CNN model")
         best_model = torch.load(f"{folder}/best_model")
         model.load_state_dict(best_model['model_state_dict'])
+
+        # TODO: test da continuare
 
         print('Testing the model')
         score = evaluate_cnn(model, test_loader)

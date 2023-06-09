@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import torch
 import torchvision
 from torch.utils.data import BatchSampler, DataLoader
 from torchvision.transforms import ToPILImage

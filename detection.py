@@ -8,6 +8,7 @@ from detection_fasterrcnn import detection_fasterrcnn
 from detection_ourCNN import detection_cnn
 
 os.environ["WANDB_SILENT"] = "true"
+os.environ["WANDB__SERVICE_WAIT"] = "300"
 
 
 if __name__ == '__main__':
@@ -31,7 +32,7 @@ if __name__ == '__main__':
             folder = "models/model"
 
     if args.model == "cnn":
-        folder = "model/cnn"
+        folder = "models/cnn"
 
     if args.model == "fasterrcnn":
         detection_fasterrcnn(args, folder)

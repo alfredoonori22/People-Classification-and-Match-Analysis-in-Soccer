@@ -56,6 +56,7 @@ def train_one_epoch_cnn(model, optimizer, training_loader, epoch, folder):
     for i, (images, targets) in enumerate(training_loader):
         # Every data instance is an image + target pair
         images = torch.stack([image.cuda() for image in images])
+        targets = torch.stack(targets)
 
         # Make predictions for this batch
         outputs = model(images)
@@ -131,7 +132,7 @@ def evaluate_fasterrcnn(model, validation_loader):
 
 def evaluate_cnn(model, validation_loader):
     model.eval()
-    metric = F1Score(num_classes=3, average=None, task="multiclass")
+    metric = F1Score(num_classes=3, average="weighted", task="multiclass")
 
     with torch.inference_mode():
         for i, (images, targets) in enumerate(validation_loader):
