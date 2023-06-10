@@ -28,7 +28,7 @@ class ResizeImg:
         # Revert tuple order for Resize()
         size = size[::-1]
         # Resize the image
-        resize = Resize(size)
+        resize = Resize(size, antialias=True)
         image = resize(image)
 
         return image, target

@@ -1,12 +1,11 @@
 import sys
 
 import torch.utils.data
-from torch.utils.data import DataLoader, SubsetRandomSampler
 
 import transform as T
 from datasets import SNDetection, Football_People
 from models import our_CNN, create_fasterrcnn
-from train_detection import train_one_epoch_cnn, evaluate_cnn
+from train_detection import train_one_epoch_cnn, evaluate_cnn, test_cnn
 from utils import create_dataloader
 
 
@@ -36,15 +35,8 @@ def detection_cnn(args, folder):
         dataset_train = Football_People(args, split='train', transform=T.get_transform("train", nn))
         dataset_valid = Football_People(args, split='valid', transform=T.get_transform("valid", nn))
 
-        if args.tiny is not None:
-            indices = torch.randperm(len(dataset_train))[:40]
-            indices_valid = torch.randperm(len(dataset_valid))[:8]
-
-            training_loader = DataLoader(dataset_train, batch_size=4, sampler=SubsetRandomSampler(indices))
-            validation_loader = DataLoader(dataset_valid, batch_size=4, sampler=SubsetRandomSampler(indices_valid))
-        else:
-            training_loader = create_dataloader(dataset_train, args.batch_size)
-            validation_loader = create_dataloader(dataset_valid, args.batch_size)
+        training_loader = create_dataloader(dataset_train, args.batch_size)
+        validation_loader = create_dataloader(dataset_valid, args.batch_size)
 
         # Optimizer
         params = [p for p in model.parameters() if p.requires_grad]
@@ -61,7 +53,7 @@ def detection_cnn(args, folder):
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             args.start_epoch = checkpoint['epoch'] + 1
 
-            best_model = torch.load(f"cnn/best_model")
+            best_model = torch.load(f"{folder}/best_model")
             best_score = best_model['score']
 
         print("Start training")
@@ -120,14 +112,17 @@ def detection_cnn(args, folder):
 
         # Data Loading Code
         print('Loading Data for Detection test')
+        # We want just the label to be in the multiclass form, not the model
+        args.multiclass = True
         dataset_test = SNDetection(args, split='test', transform=T.get_transform("test", "fasterrcnn"))
+        # dataset_test = Football_People(args, split = 'test', transform=T.get_transform("test", "cnn"))
 
         print("Creating data loader")
-        test_loader = create_dataloader(dataset_test, args.batch_size)
+        test_loader = create_dataloader(dataset_test, 1)
 
         print("Retrieving the Faster-RCNN model")
-        best_model = torch.load(f"models/model/best_model")
-        fasterrcnn = create_fasterrcnn(dropout=False, num_classes=3)
+        best_model = torch.load(f"models/backbone/best_model")
+        fasterrcnn = create_fasterrcnn(dropout=False, backbone=True, num_classes=3)
         fasterrcnn.load_state_dict(best_model['model_state_dict'])
 
         # Retrieving the model
@@ -135,10 +130,9 @@ def detection_cnn(args, folder):
         best_model = torch.load(f"{folder}/best_model")
         model.load_state_dict(best_model['model_state_dict'])
 
-        # TODO: test da continuare
-
         print('Testing the model')
-        score = evaluate_cnn(model, test_loader)
+        # score = evaluate_cnn(model, test_loader)
+        score = test_cnn(fasterrcnn, model, test_loader)
         score = round(float(score) * 100, 2)
 
         print(f'Test mAP: {score}')

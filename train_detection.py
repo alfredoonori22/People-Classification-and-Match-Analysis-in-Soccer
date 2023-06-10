@@ -1,8 +1,10 @@
 import torch
+from torch import nn
 from torch.nn import CrossEntropyLoss
 from torchmetrics import F1Score
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
+import transform as T
 from utils import apply_nms
 
 
@@ -57,7 +59,7 @@ def train_one_epoch_cnn(model, optimizer, training_loader, epoch, folder):
         # Every data instance is an image + target pair
         images = torch.stack([image.cuda() for image in images])
         targets = torch.stack(targets)
-
+        breakpoint()
         # Make predictions for this batch
         outputs = model(images)
         outputs = outputs.cpu()
@@ -93,7 +95,7 @@ def evaluate_fasterrcnn(model, validation_loader):
 
     with torch.inference_mode():
         # Validation metric
-        metric = MeanAveragePrecision(class_metrics=True, iou_thresholds=[0.5])
+        metric = MeanAveragePrecision(class_metrics=True, iou_thresholds=[0.5, 0.75])
 
         for i, (images, targets) in enumerate(validation_loader):
             # Singol batch's score
@@ -132,12 +134,13 @@ def evaluate_fasterrcnn(model, validation_loader):
 
 def evaluate_cnn(model, validation_loader):
     model.eval()
-    metric = F1Score(num_classes=3, average="weighted", task="multiclass")
+    metric = F1Score(num_classes=3, average=None, task="multiclass")
 
     with torch.inference_mode():
         for i, (images, targets) in enumerate(validation_loader):
             # Singol batch's score
             images = torch.stack([image.cuda() for image in images])
+            targets = torch.stack(targets)
 
             # Predict the output
             outputs = model(images)
@@ -147,3 +150,42 @@ def evaluate_cnn(model, validation_loader):
         res = metric.compute()
 
     return res
+
+
+def test_cnn(fasterrcnn, cnn, test_loader):
+    fasterrcnn.eval()
+    cnn.eval()
+
+    with torch.inference_mode():
+        # Validation metric
+        metric = MeanAveragePrecision(class_metrics=True, iou_thresholds=[0.5, 0.75])
+
+        for i, (image, target) in enumerate(test_loader):
+            image = image[0].cuda()
+
+            # Predict the output
+            output = fasterrcnn(image.unsqueeze(0))
+            output = [{k: v.cpu() for k, v in t.items()} for t in output]
+
+            # Non Max Suppression to discard intersected superflous bboxes
+            output = [apply_nms(o, iou_thresh=0.2) for o in output][0]
+
+            for b, box in enumerate(output['boxes']):
+                if output['labels'][b] == 2:
+                    box_img = image[:, int(box[1]):int(box[3]), int(box[0]):int(box[2])]
+                    box_img, _ = T.ResizeImg()(box_img, target, (40, 80))
+
+                    prediction = cnn(box_img.unsqueeze(0))
+                    prediction = nn.Softmax(dim=1)(prediction)
+
+                    _, pred = torch.max(torch.exp(prediction.cpu()), 1)
+
+                    if prediction[0][pred] > 0.75:
+                        output['labels'][b] = pred + 2
+
+            metric.update([output], [target[0]])
+
+        res = metric.compute()
+        print(res)
+
+    return res['map']

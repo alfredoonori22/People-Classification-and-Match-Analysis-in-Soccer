@@ -18,6 +18,7 @@ def get_args():
     parser.add_argument('--model', type=str, default='fasterrcnn', help='fasterrcnn or cnn')
     parser.add_argument('--dropout', action='store_true', help='Use dropout in fc layers')
     parser.add_argument('--multiclass', action='store_true', help='If true differentiate between people')
+    parser.add_argument('--backbone', action='store_true', help='Train backbone')
 
     # Training
     parser.add_argument('--resume', action='store_true', help='Resume from checkpoint')

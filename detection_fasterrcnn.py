@@ -12,7 +12,7 @@ from utils import create_dataloader
 def detection_fasterrcnn(args, folder):
     # Create model
     num_classes = 5 if args.multiclass else 3
-    model = create_fasterrcnn(args.dropout, num_classes)
+    model = create_fasterrcnn(dropout=args.dropout, backbone=args.backbone, num_classes=num_classes)
 
     nn = "fasterrcnn"
 

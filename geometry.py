@@ -128,7 +128,7 @@ def ShirtColor(image, bbox):
 if __name__ == '__main__':
 
     # Retrieving best model
-    model = create_fasterrcnn(dropout=False, num_classes=3)
+    model = create_fasterrcnn(dropout=False, backbone=True, num_classes=3)
     best_model = torch.load('/mnt/beegfs/homes/aonori/SoccerNet/models/model/best_model')
     model.load_state_dict(best_model['model_state_dict'])
     model.eval()

@@ -145,7 +145,7 @@ class Football_People(torch.utils.data.Dataset):
     def __init__(self, args, split, transform=None):
 
         self.path = os.path.join(args.data_path, 'Football_People')
-        self.size = (256, 256)
+        self.size = (40, 80)
 
         # t will be the list containg all the pre-process operation
         t = [T.ResizeImg()]
