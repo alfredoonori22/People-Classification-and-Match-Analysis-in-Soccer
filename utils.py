@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import torch
 import torchvision
+import torch
 from torch.utils.data import BatchSampler, DataLoader
 from torchvision.transforms import ToPILImage
 
@@ -55,7 +56,7 @@ def draw_bbox(image, target, output):
     cv2.imwrite(f"test-images/bbox-{target['image_id']}.png", image)
 
 
-def apply_nms(orig_prediction, iou_thresh=0.3):
+def apply_nms(orig_prediction, iou_thresh=0.3, thresh=0.3):
     # torchvision returns the indices of the bboxes to keep
     keep = torchvision.ops.nms(orig_prediction['boxes'], orig_prediction['scores'], iou_thresh)
     final_prediction = orig_prediction
@@ -63,16 +64,25 @@ def apply_nms(orig_prediction, iou_thresh=0.3):
     final_prediction['scores'] = final_prediction['scores'][keep]
     final_prediction['labels'] = final_prediction['labels'][keep]
 
-    if torch.any(final_prediction['scores'] > 0.3):
+    if torch.any(final_prediction['scores'] > thresh):
         output = {'boxes': torch.stack([box for box, score in zip(final_prediction['boxes'], final_prediction['scores'])
-                                        if score > 0.3]),
+                                        if score > thresh]),
                   'labels': torch.tensor([label for label, score in zip(final_prediction['labels'], final_prediction['scores'])
-                                          if score > 0.3]),
+                                          if score > thresh]),
                   'scores': torch.tensor([score for score in final_prediction['scores']
-                                          if score > 0.3])}
+                                          if score > thresh])}
     else:
         output = {'boxes': torch.FloatTensor([]),
                   'labels': torch.FloatTensor([]),
                   'scores': torch.FloatTensor([])}
 
     return output
+
+
+def xyxy2xywh(bbox):
+    x1 = bbox[0]
+    y1 = bbox[1]
+    w = bbox[2] - x1
+    h = bbox[3] - y1
+
+    return [x1, y1, w, h]

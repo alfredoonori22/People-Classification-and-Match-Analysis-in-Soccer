@@ -4,8 +4,9 @@ import torch
 from scipy.spatial.distance import cdist
 from sklearn.cluster import KMeans
 from torchvision.transforms import functional
-
+from argument_parser import get_args
 from models import create_fasterrcnn
+from utils import apply_nms, xyxy2xywh
 
 BALL_DIAMETER = 23
 
@@ -23,14 +24,10 @@ def PeopleDetection(zoomed_image):
     bboxes, scores = hog.detectMultiScale(gray, winStride=(1, 1), padding=(5, 5), scale=1.1)
     bboxes = [bbox.tolist() for bbox, score in zip(bboxes, scores) if score > 0.6]
 
-    for (x, y, w, h) in bboxes:
-        cv2.rectangle(zoomed_image, (x, y), (x + w, y + h), (255, 0, 0), 2)
-    cv2.imwrite("image.png", zoomed_image)
-
     return bboxes
 
 
-def NearestPlayer(bboxes, ball_center):
+def NearestPlayer(bboxes, ball_center, image):
 
     # Saving in a list all bboxes centers
     centers = []
@@ -50,6 +47,12 @@ def NearestPlayer(bboxes, ball_center):
     nearest = distances.argmin()
     # Distance in pixel for the nearest player
     distance_nearest = float(distances[nearest])
+
+    # Drawing bboxes
+    # Player
+    cv2.rectangle(image, (int(bboxes[nearest][0]), int(bboxes[nearest][1])),
+                  (int(bboxes[nearest][0] + bboxes[nearest][2]), int(bboxes[nearest][1] + bboxes[nearest][3])),
+                  (255, 0, 0), 2)
 
     return nearest, distance_nearest
 
@@ -71,8 +74,8 @@ def px2cm(distance, width):
 
 def ShirtColor(image, bbox):
     # Find bbox coordinates
-    x1, y1 = bbox[0], bbox[1]
-    x2, y2 = x1 + bbox[2], y1 + bbox[3]
+    x1, y1 = int(bbox[0]), int(bbox[1])
+    x2, y2 = int(x1 + bbox[2]), int(y1 + bbox[3])
 
     # Crop the image on the player
     player_img = image[y1:y2, x1:x2]
@@ -125,11 +128,19 @@ def ShirtColor(image, bbox):
     return bgr_color
 
 
+def interpolate_frames(last_player):
+    bboxes = output['boxes'][np.where(output['labels'] == 2)]
+    bboxes = [xyxy2xywh(bbox) for bbox in bboxes]
+    NearestPlayer(bboxes, last_player, cv_image)
+
+
+
 if __name__ == '__main__':
+    args = get_args()
 
     # Retrieving best model
-    model = create_fasterrcnn(dropout=False, backbone=True, num_classes=3)
-    best_model = torch.load('/mnt/beegfs/homes/aonori/SoccerNet/models/model/best_model')
+    model = create_fasterrcnn(dropout=True, backbone=False, num_classes=5)
+    best_model = torch.load('/mnt/beegfs/homes/ccapellino/SoccerNet/models/backbone/best_model')
     model.load_state_dict(best_model['model_state_dict'])
     model.eval()
 
@@ -137,7 +148,11 @@ if __name__ == '__main__':
     video = cv2.VideoCapture('test.mp4')
     success, cv_image = video.read()
     # Create output video
-    out = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 10, (cv_image.shape[1], cv_image.shape[0]))
+    out = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 15, (cv_image.shape[1], cv_image.shape[0]))
+
+    last_player = (0, 0)
+    last_ball = (0, 0)
+    first = True
 
     while True:
         # Read frame from video
@@ -154,6 +169,8 @@ if __name__ == '__main__':
             output = model([image])
 
         output = {k: v.cpu() for k, v in output[0].items()}
+        # Non Max Suppression to discard intersected superflous bboxes
+        output = apply_nms(output, iou_thresh=0.2, thresh=0.75)
 
         # Keeping only the predicted ball boxes
         ball_boxes = output['boxes'][np.where(output['labels'] == 1)]
@@ -161,10 +178,15 @@ if __name__ == '__main__':
 
         # Skip image without ball
         if len(ball_boxes) == 0:
-            # Nel for dei frame del video saranno continue
-            cv2.putText(cv_image, "Ball not found", (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
+            if not args.deep:
+                # Nel for dei frame del video saranno continue
+                cv2.putText(cv_image, "Ball not found", (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
+                print("Ball not found")
+            else:
+                interpolate_frames(last_player)
+                print("Ball not found")
+
             out.write(cv_image)
-            print("Error 404: Ball not found")
             continue
 
         # Select the box with the highest score
@@ -175,44 +197,64 @@ if __name__ == '__main__':
         x1, y1, x2, y2 = ball_box
         x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
-        # print("Ball coordinates: ", x1, y1, x2, y2)
-
         # Ball's center coordinates in original image
         center_x = int((x1 + x2) / 2)
         center_y = int((y1 + y2) / 2)
+
+        if not first:
+            distance = cdist(np.array([last_ball]), np.array([(center_x, center_y)]), 'euclidean')[0]
+            if distance > 50:
+                interpolate_frames(last_player)
+                out.write(cv_image)
+                print('Ball is too distant from last position')
+                continue
+
+        last_ball = (center_x, center_y)
+        first = False
 
         # Ball's bbox dimension
         width_ball = x2 - x1
         height_ball = y2 - y1
 
-        # Zoom factor
-        zoom_factor = 10
+        if not args.deep:
+            # Zoom factor
+            zoom_factor = 10
 
-        # Zooming the image on the ball
-        new_width = int(width_ball * zoom_factor)
-        new_height = int(height_ball * zoom_factor)
+            # Zooming the image on the ball
+            new_width = int(width_ball * zoom_factor)
+            new_height = int(height_ball * zoom_factor)
 
-        # New dimension of the image
-        x1 = max(0, center_x - int(new_width / 2))
-        y1 = max(0, center_y - int(new_height / 2))
-        x2 = min(cv_image.shape[1], x1 + new_width)
-        y2 = min(cv_image.shape[0], y1 + new_height)
-        zoomed_image = cv_image[y1:y2, x1:x2]
+            # New dimension of the image
+            x1 = max(0, center_x - int(new_width / 2))
+            y1 = max(0, center_y - int(new_height / 2))
+            x2 = min(cv_image.shape[1], x1 + new_width)
+            y2 = min(cv_image.shape[0], y1 + new_height)
+            zoomed_image = cv_image[y1:y2, x1:x2]
 
-        # Ball's center coordinates in resized image
-        ball_center = (new_width / 2, new_height / 2)
+            # Ball's center coordinates in resized image
+            ball_center = (new_width / 2, new_height / 2)
 
-        # Detect people in zoomed image
-        bboxes = PeopleDetection(zoomed_image)
+            # Detect people in zoomed image
+            bboxes = PeopleDetection(zoomed_image)
 
-        if len(bboxes) == 0:
-            cv2.putText(cv_image, "No player nearby", (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
-            out.write(cv_image)
-            print("No player nearby")
-            continue
+            if len(bboxes) == 0:
+                cv2.putText(cv_image, "No player nearby", (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
+                out.write(cv_image)
+                print("No player nearby")
+                continue
+        else:
+            # Take the bboxes of players
+            bboxes = output['boxes'][np.where(output['labels'] == 2)]
+            bboxes = [xyxy2xywh(bbox) for bbox in bboxes]
+            ball_center = (center_x, center_y)
+            zoomed_image = cv_image
 
         # Find the nearest Player from the ball
-        idx, distance_px = NearestPlayer(bboxes, ball_center)
+        idx, distance_px = NearestPlayer(bboxes, ball_center, zoomed_image)
+        last_player = (int(bboxes[idx][0]+bboxes[idx][2]/2), int(bboxes[idx][1]+bboxes[idx][3]/2))
+
+        # Ball
+        cv2.rectangle(zoomed_image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
 
         # Convert pixel distance to cm distance
         distance_cm, measure = px2cm(distance_px, width_ball)
@@ -220,8 +262,8 @@ if __name__ == '__main__':
         # Find dominant shirt color
         color = ShirtColor(zoomed_image, bboxes[idx])
 
-        cv2.putText(cv_image, f'The closest player is {distance_cm} {measure} from the ball\nHis shirt color is BGR: {color}', (0, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
+        cv2.putText(cv_image, f'The closest player is {distance_cm} {measure} from the ball\nHis shirt color is BGR: '
+                              f'{color}', (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
         out.write(cv_image)
         print(f'The closest player is {distance_cm} {measure} from the ball')
         print(f'His shirt color is BGR: {color}')
