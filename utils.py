@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
-import torch
 import torchvision
 import torch
 from torch.utils.data import BatchSampler, DataLoader
+from torchmetrics.detection import MeanAveragePrecision
 from torchvision.transforms import ToPILImage
 
 """
@@ -65,11 +65,11 @@ def apply_nms(orig_prediction, iou_thresh=0.3, thresh=0.3):
     final_prediction['labels'] = final_prediction['labels'][keep]
 
     if torch.any(final_prediction['scores'] > thresh):
-        output = {'boxes': torch.stack([box for box, score in zip(final_prediction['boxes'], final_prediction['scores'])
+        output = {'boxes': torch.stack([box for box, label, score in zip(final_prediction['boxes'], final_prediction['labels'], final_prediction['scores'])
                                         if score > thresh]),
                   'labels': torch.tensor([label for label, score in zip(final_prediction['labels'], final_prediction['scores'])
                                           if score > thresh]),
-                  'scores': torch.tensor([score for score in final_prediction['scores']
+                  'scores': torch.tensor([score for score, label in zip(final_prediction['scores'], final_prediction['labels'])
                                           if score > thresh])}
     else:
         output = {'boxes': torch.FloatTensor([]),
@@ -86,3 +86,27 @@ def xyxy2xywh(bbox):
     h = bbox[3] - y1
 
     return [x1, y1, w, h]
+
+
+def ourMetric(outputs, targets):
+    metric = MeanAveragePrecision(class_metrics=True, iou_thresholds=[0.5, 0.75])
+    metric.update(outputs, targets)
+    res = metric.compute()
+
+    num_balls = len(np.where(outputs[0]['labels'] == 1)[0])
+    num_people = len(np.where(outputs[0]['labels'] != 1)[0])
+
+    if res['map_per_class'].numel() == 1:
+        return res['map_per_class']
+
+    if num_balls:
+        map_ball = res['map_per_class'][0] * num_balls
+        res_people = [x for x in res['map_per_class'][1:].numpy() if x > 0]
+        map_people = np.sum(res_people) / len(res_people) * num_people
+
+        mAP = (map_ball + map_people) / (num_balls + num_people)
+    else:
+        res_people = [x for x in res['map_per_class'].numpy() if x > 0]
+        mAP = np.sum(res_people) / len(res_people)
+
+    return mAP

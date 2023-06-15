@@ -18,22 +18,20 @@ def get_args():
     parser.add_argument('--model', type=str, default='fasterrcnn', help='fasterrcnn or cnn')
     parser.add_argument('--dropout', action='store_true', help='Use dropout in fc layers')
     parser.add_argument('--multiclass', action='store_true', help='If true differentiate between people')
-    parser.add_argument('--backbone', action='store_true', help='Train backbone')
+    parser.add_argument('--train-backbone', action='store_true', help='Train backbone')
 
     # Training
     parser.add_argument('--resume', action='store_true', help='Resume from checkpoint')
-    parser.add_argument('--start_epoch', type=int, default=0, help='Start epoch')
+    parser.add_argument('--start-epoch', type=int, default=0, help='Start epoch')
     parser.add_argument('--patience', type=int, default=20, help='Number of epochs before early stopping')
 
     # Optimizer
     parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
     parser.add_argument('-wd', '--weight-decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
-    parser.add_argument('--lr', default=0.001, type=float, help='initial learning rate')
+    parser.add_argument('--lr', default=0.01, type=float, help='initial learning rate')
 
     # Geometry
     parser.add_argument('--deep', action='store_true', help='Deep version of Geometry')
 
     args = parser.parse_args()
     return args
-
-

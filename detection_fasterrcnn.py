@@ -1,7 +1,5 @@
 import sys
-
 import torch.utils.data
-
 import transform as T
 from datasets import SNDetection
 from models import create_fasterrcnn
@@ -12,7 +10,7 @@ from utils import create_dataloader
 def detection_fasterrcnn(args, folder):
     # Create model
     num_classes = 5 if args.multiclass else 3
-    model = create_fasterrcnn(dropout=args.dropout, backbone=args.backbone, num_classes=num_classes)
+    model = create_fasterrcnn(dropout=args.dropout, backbone=args.train_backbone, num_classes=num_classes)
 
     nn = "fasterrcnn"
 
@@ -34,7 +32,7 @@ def detection_fasterrcnn(args, folder):
         dataset_valid = SNDetection(args, split='valid', transform=T.get_transform("valid", nn))
 
         training_loader = create_dataloader(dataset_train, args.batch_size)
-        validation_loader = create_dataloader(dataset_valid, args.batch_size)
+        validation_loader = create_dataloader(dataset_valid, 1)
 
         # Optimizer
         params = [p for p in model.parameters() if p.requires_grad]
@@ -111,7 +109,7 @@ def detection_fasterrcnn(args, folder):
         dataset_test = SNDetection(args, split='test', transform=T.get_transform("test", nn))
 
         print("Creating data loader")
-        test_loader = create_dataloader(dataset_test, args.batch_size)
+        test_loader = create_dataloader(dataset_test, 1)
 
         # Retrieving the model
         print("Retrieving the model")

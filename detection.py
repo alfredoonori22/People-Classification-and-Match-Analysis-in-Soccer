@@ -34,7 +34,7 @@ if __name__ == '__main__':
     if args.model == "cnn":
         folder = "models/cnn"
 
-    if args.backbone:
+    if args.train_backbone:
         folder = "models/backbone"
 
     if args.model == "fasterrcnn":

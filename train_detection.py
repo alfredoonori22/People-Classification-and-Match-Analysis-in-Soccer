@@ -2,10 +2,8 @@ import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss
 from torchmetrics import F1Score
-from torchmetrics.detection.mean_ap import MeanAveragePrecision
-
 import transform as T
-from utils import apply_nms
+from utils import apply_nms, ourMetric, draw_bbox
 
 
 def train_one_epoch_fasterrcnn(model, optimizer, training_loader, epoch, folder):
@@ -95,41 +93,24 @@ def evaluate_fasterrcnn(model, validation_loader):
 
     with torch.inference_mode():
         # Validation metric
-        metric = MeanAveragePrecision(class_metrics=True, iou_thresholds=[0.5, 0.75])
-
-        for i, (images, targets) in enumerate(validation_loader):
+        count = 0
+        mAP_tot = 0
+        for count, (images, targets) in enumerate(validation_loader):
             # Singol batch's score
             images = list(image.cuda() for image in images)
 
             # Predict the output
-            outputs = model(images)
+            outputs = model(images[0].unsqueeze(0))
             outputs = [{k: v.cpu() for k, v in t.items()} for t in outputs]
 
             # Non Max Suppression to discard intersected superflous bboxes
-            outputs = [apply_nms(o, iou_thresh=0.2) for o in outputs]
+            outputs = [apply_nms(o, iou_thresh=0.2, thresh=0.7) for o in outputs]
 
-            for k, diz in enumerate(outputs):
-                if torch.any(diz['scores'] > 0.3):
-                    outputs[k] = {'boxes': torch.stack([box for box, score in zip(diz['boxes'], diz['scores'])
-                                                        if score > 0.3]),
-                                  'labels': torch.tensor([label for label, score in zip(diz['labels'], diz['scores'])
-                                                          if score > 0.3]),
-                                  'scores': torch.tensor([score for score in diz['scores']
-                                                          if score > 0.3])}
-                else:
-                    outputs[k] = {'boxes': torch.FloatTensor([]),
-                                  'labels': torch.FloatTensor([]),
-                                  'scores': torch.FloatTensor([])}
+            mAP_tot += ourMetric(outputs, targets)
 
-            # for k, _ in enumerate(outputs):
-            #    draw_bbox(images[k], targets[k], outputs[k])
+        mAP_tot /= (count + 1)
 
-            metric.update(outputs, targets)
-
-        res = metric.compute()
-        print(res)
-
-    return res['map']
+    return mAP_tot
 
 
 def evaluate_cnn(model, validation_loader):
@@ -157,10 +138,9 @@ def test_cnn(fasterrcnn, cnn, test_loader):
     cnn.eval()
 
     with torch.inference_mode():
-        # Validation metric
-        metric = MeanAveragePrecision(class_metrics=True, iou_thresholds=[0.5, 0.75])
-
-        for i, (image, target) in enumerate(test_loader):
+        count = 0
+        mAP_tot = 0
+        for count, (image, target) in enumerate(test_loader):
             image = image[0].cuda()
 
             # Predict the output
@@ -168,7 +148,7 @@ def test_cnn(fasterrcnn, cnn, test_loader):
             output = [{k: v.cpu() for k, v in t.items()} for t in output]
 
             # Non Max Suppression to discard intersected superflous bboxes
-            output = [apply_nms(o, iou_thresh=0.2) for o in output][0]
+            output = [apply_nms(o, iou_thresh=0.2, thresh=0.7) for o in output][0]
 
             for b, box in enumerate(output['boxes']):
                 if output['labels'][b] == 2:
@@ -180,12 +160,12 @@ def test_cnn(fasterrcnn, cnn, test_loader):
 
                     _, pred = torch.max(torch.exp(prediction.cpu()), 1)
 
-                    if prediction[0][pred] > 0.75:
+                    if prediction[0][pred] > 0.7:
                         output['labels'][b] = pred + 2
 
-            metric.update([output], [target[0]])
+            draw_bbox(image, target[0], output)
+            mAP_tot += ourMetric([output], [target[0]])
 
-        res = metric.compute()
-        print(res)
+        mAP_tot /= (count + 1)
 
-    return res['map']
+    return mAP_tot

@@ -21,7 +21,7 @@ def PeopleDetection(zoomed_image):
     gray = cv2.GaussianBlur(gray, (7, 7), 0)
 
     # Detect people's bboxes
-    bboxes, scores = hog.detectMultiScale(gray, winStride=(1, 1), padding=(5, 5), scale=1.1)
+    bboxes, scores = hog.detectMultiScale(gray, winStride=(1, 1), padding=(5, 5), scale=1.05)
     bboxes = [bbox.tolist() for bbox, score in zip(bboxes, scores) if score > 0.6]
 
     return bboxes
@@ -48,8 +48,7 @@ def NearestPlayer(bboxes, ball_center, image):
     # Distance in pixel for the nearest player
     distance_nearest = float(distances[nearest])
 
-    # Drawing bboxes
-    # Player
+    # Drawing nearest player bboxes
     cv2.rectangle(image, (int(bboxes[nearest][0]), int(bboxes[nearest][1])),
                   (int(bboxes[nearest][0] + bboxes[nearest][2]), int(bboxes[nearest][1] + bboxes[nearest][3])),
                   (255, 0, 0), 2)
@@ -134,18 +133,18 @@ def interpolate_frames(last_player):
     NearestPlayer(bboxes, last_player, cv_image)
 
 
-
 if __name__ == '__main__':
     args = get_args()
 
     # Retrieving best model
-    model = create_fasterrcnn(dropout=True, backbone=False, num_classes=5)
-    best_model = torch.load('/mnt/beegfs/homes/ccapellino/SoccerNet/models/backbone/best_model')
+    model = create_fasterrcnn(dropout=False, backbone=True, num_classes=3)
+    best_model = torch.load('/mnt/beegfs/homes/aonori/SoccerNet/models/backbone/best_model')
     model.load_state_dict(best_model['model_state_dict'])
     model.eval()
 
     # Load input video
-    video = cv2.VideoCapture('test.mp4')
+    video = cv2.VideoCapture('/mnt/beegfs/work/cvcs_2022_group20/test.mp4')
+    # video.set(cv2.CAP_PROP_FPS, 30)
     success, cv_image = video.read()
     # Create output video
     out = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 15, (cv_image.shape[1], cv_image.shape[0]))
@@ -172,24 +171,25 @@ if __name__ == '__main__':
         # Non Max Suppression to discard intersected superflous bboxes
         output = apply_nms(output, iou_thresh=0.2, thresh=0.75)
 
-        # Keeping only the predicted ball boxes
+        # Predicted ball boxes
         ball_boxes = output['boxes'][np.where(output['labels'] == 1)]
         ball_scores = output['scores'][np.where(output['labels'] == 1)]
 
         # Skip image without ball
         if len(ball_boxes) == 0:
             if not args.deep:
-                # Nel for dei frame del video saranno continue
-                cv2.putText(cv_image, "Ball not found", (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
+                cv2.putText(cv_image, "Ball not found", (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 3)
                 print("Ball not found")
             else:
-                interpolate_frames(last_player)
-                print("Ball not found")
+                if not first:
+                    # Track last player
+                    interpolate_frames(last_player)
+                    print("Ball not found, tracking last player found")
 
             out.write(cv_image)
             continue
 
-        # Select the box with the highest score
+        # Select the ball box with the highest score
         idx = np.argmax(ball_scores)
         ball_box = ball_boxes[idx]
 
@@ -202,9 +202,11 @@ if __name__ == '__main__':
         center_y = int((y1 + y2) / 2)
 
         if not first:
+            # Distance between new ball and the last ball found
             distance = cdist(np.array([last_ball]), np.array([(center_x, center_y)]), 'euclidean')[0]
             if distance > 50:
-                interpolate_frames(last_player)
+                if args.deep:
+                    interpolate_frames(last_player)
                 out.write(cv_image)
                 print('Ball is too distant from last position')
                 continue
@@ -225,11 +227,11 @@ if __name__ == '__main__':
             new_height = int(height_ball * zoom_factor)
 
             # New dimension of the image
-            x1 = max(0, center_x - int(new_width / 2))
-            y1 = max(0, center_y - int(new_height / 2))
-            x2 = min(cv_image.shape[1], x1 + new_width)
-            y2 = min(cv_image.shape[0], y1 + new_height)
-            zoomed_image = cv_image[y1:y2, x1:x2]
+            x1_im = max(0, center_x - int(new_width / 2))
+            y1_im = max(0, center_y - int(new_height / 2))
+            x2_im = min(cv_image.shape[1], x1_im + new_width)
+            y2_im = min(cv_image.shape[0], y1_im + new_height)
+            zoomed_image = cv_image[y1_im:y2_im, x1_im:x2_im]
 
             # Ball's center coordinates in resized image
             ball_center = (new_width / 2, new_height / 2)
@@ -238,7 +240,7 @@ if __name__ == '__main__':
             bboxes = PeopleDetection(zoomed_image)
 
             if len(bboxes) == 0:
-                cv2.putText(cv_image, "No player nearby", (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
+                cv2.putText(cv_image, "No player nearby", (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 3)
                 out.write(cv_image)
                 print("No player nearby")
                 continue
@@ -251,10 +253,12 @@ if __name__ == '__main__':
 
         # Find the nearest Player from the ball
         idx, distance_px = NearestPlayer(bboxes, ball_center, zoomed_image)
+
+        # Update last player found
         last_player = (int(bboxes[idx][0]+bboxes[idx][2]/2), int(bboxes[idx][1]+bboxes[idx][3]/2))
 
         # Ball
-        cv2.rectangle(zoomed_image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
+        cv2.rectangle(cv_image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
 
         # Convert pixel distance to cm distance
         distance_cm, measure = px2cm(distance_px, width_ball)
@@ -263,10 +267,11 @@ if __name__ == '__main__':
         color = ShirtColor(zoomed_image, bboxes[idx])
 
         cv2.putText(cv_image, f'The closest player is {distance_cm} {measure} from the ball\nHis shirt color is BGR: '
-                              f'{color}', (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
-        out.write(cv_image)
+                              f'{color}', (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 3)
+
         print(f'The closest player is {distance_cm} {measure} from the ball')
         print(f'His shirt color is BGR: {color}')
+        out.write(cv_image)
 
     # Release resources
     video.release()

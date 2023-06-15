@@ -115,14 +115,13 @@ def detection_cnn(args, folder):
         # We want just the label to be in the multiclass form, not the model
         args.multiclass = True
         dataset_test = SNDetection(args, split='test', transform=T.get_transform("test", "fasterrcnn"))
-        # dataset_test = Football_People(args, split = 'test', transform=T.get_transform("test", "cnn"))
 
         print("Creating data loader")
         test_loader = create_dataloader(dataset_test, 1)
 
         print("Retrieving the Faster-RCNN model")
-        best_model = torch.load(f"models/backbone/best_model")
         fasterrcnn = create_fasterrcnn(dropout=False, backbone=True, num_classes=3)
+        best_model = torch.load(f"models/backbone/best_model")
         fasterrcnn.load_state_dict(best_model['model_state_dict'])
 
         # Retrieving the model
