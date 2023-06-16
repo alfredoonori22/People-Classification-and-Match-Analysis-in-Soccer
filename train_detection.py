@@ -107,6 +107,7 @@ def evaluate_fasterrcnn(model, validation_loader):
             outputs = [apply_nms(o, iou_thresh=0.2, thresh=0.7) for o in outputs]
 
             mAP_tot += ourMetric(outputs, targets)
+            draw_bbox(images[0], targets[0], outputs[0])
 
         mAP_tot /= (count + 1)
 

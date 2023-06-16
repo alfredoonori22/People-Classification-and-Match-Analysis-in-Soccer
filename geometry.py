@@ -1,4 +1,5 @@
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from scipy.spatial.distance import cdist
@@ -137,8 +138,8 @@ if __name__ == '__main__':
     args = get_args()
 
     # Retrieving best model
-    model = create_fasterrcnn(dropout=False, backbone=True, num_classes=3)
-    best_model = torch.load('/mnt/beegfs/homes/aonori/SoccerNet/models/backbone/best_model')
+    model = create_fasterrcnn(dropout=True, backbone=True, num_classes=5)
+    best_model = torch.load('models/backbone/best_model')
     model.load_state_dict(best_model['model_state_dict'])
     model.eval()
 
@@ -152,6 +153,7 @@ if __name__ == '__main__':
     last_player = (0, 0)
     last_ball = (0, 0)
     first = True
+    colors = []
 
     while True:
         # Read frame from video
@@ -201,9 +203,14 @@ if __name__ == '__main__':
         center_x = int((x1 + x2) / 2)
         center_y = int((y1 + y2) / 2)
 
+        # Ball's bbox dimension
+        width_ball = x2 - x1
+        height_ball = y2 - y1
+
         if not first:
             # Distance between new ball and the last ball found
             distance = cdist(np.array([last_ball]), np.array([(center_x, center_y)]), 'euclidean')[0]
+
             if distance > 50:
                 if args.deep:
                     interpolate_frames(last_player)
@@ -211,12 +218,13 @@ if __name__ == '__main__':
                 print('Ball is too distant from last position')
                 continue
 
+            # Calculate velocity of the ball
+            distance, _ = px2cm(distance[0], width_ball)
+            velocity = round(distance * 0.30, 2)
+            print(f'Ball is moving at: {velocity} m/s')
+
         last_ball = (center_x, center_y)
         first = False
-
-        # Ball's bbox dimension
-        width_ball = x2 - x1
-        height_ball = y2 - y1
 
         if not args.deep:
             # Zoom factor
@@ -269,9 +277,28 @@ if __name__ == '__main__':
         cv2.putText(cv_image, f'The closest player is {distance_cm} {measure} from the ball\nHis shirt color is BGR: '
                               f'{color}', (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 3)
 
+        colors.append(list(color))
+
         print(f'The closest player is {distance_cm} {measure} from the ball')
         print(f'His shirt color is BGR: {color}')
         out.write(cv_image)
+
+    # Thresholding for ball possession
+    kmeans = KMeans(n_clusters=2, n_init=10)
+    kmeans.fit(colors)
+
+    bins = np.bincount(kmeans.labels_)
+
+    # Teams' colors
+    first_color = kmeans.cluster_centers_[0][::-1]/255
+    second_color = kmeans.cluster_centers_[1][::-1]/255
+
+    # Create plot
+    fig, ax = plt.subplots()
+    leg, _, _ = ax.pie(bins, labels=['Team A', 'Team B'], textprops=dict(color="w"), autopct='%1.1f%%', startangle=90, colors=[first_color, second_color])
+    ax.set_title("Ball possession")
+    ax.legend(leg, ('Team A', 'Team B'), title="Teams", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+    plt.savefig('possession.jpg', dpi=300)
 
     # Release resources
     video.release()

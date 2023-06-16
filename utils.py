@@ -26,6 +26,11 @@ PEOPLE_DICT = {'Player': 0,
                'Goalkeeper': 1,
                'Referee': 2}
 
+BBOX_COLORS = {1: [0, 0, 255],
+               2: [255, 0, 0],
+               3: [0, 85, 10],
+               4: [0, 0, 0]}
+
 
 def collate_fn(batch):
     return tuple(zip(*batch))
@@ -38,22 +43,29 @@ def create_dataloader(dataset, batch_size):
     return loader
 
 
-def draw_bbox(image, target, output):
+def draw_bbox(image, output, ball_box):
     image = image.cpu()
     image = ToPILImage()(image)
     image = np.array(image)
+
     # keys = list(CLASS_DICT.keys())
     keys = list(MULTI_CLASS_DICT.keys())
 
+    if len(ball_box) != 0:
+        cv2.rectangle(image, (int(ball_box[0]), int(ball_box[1])), (int(ball_box[2]), int(ball_box[3])), [0, 0, 255], 2)
+
     for i, (x1, y1, x2, y2) in enumerate(output['boxes']):
-        cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 2)
+        cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), BBOX_COLORS[int(output['labels'][i])], 2)
         # index = (list(MULTI_CLASS_DICT.values()).index(int(output['labels'][i])))
         index = (list(MULTI_CLASS_DICT.values()).index(int(output['labels'][i])))
-        cv2.putText(image, keys[index], (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
-    for (x1, y1, x2, y2) in target['boxes']:
-        cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
+        cv2.putText(image, keys[index], (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9,
+                    BBOX_COLORS[int(output['labels'][i])], 2)
 
-    cv2.imwrite(f"test-images/bbox-{target['image_id']}.png", image)
+    # for (x1, y1, x2, y2) in target['boxes']:
+    #     cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (255, 255, 255), 2)
+
+    # cv2.imwrite(f"test-images/bbox-{target['image_id']}.png", image)
+    return image
 
 
 def apply_nms(orig_prediction, iou_thresh=0.3, thresh=0.3):

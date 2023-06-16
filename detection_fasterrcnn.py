@@ -1,10 +1,13 @@
 import sys
+import cv2
 import torch.utils.data
 import transform as T
+import numpy as np
 from datasets import SNDetection
 from models import create_fasterrcnn
 from train_detection import train_one_epoch_fasterrcnn, evaluate_fasterrcnn
-from utils import create_dataloader
+from utils import create_dataloader, apply_nms, draw_bbox
+from torchvision.transforms import functional
 
 
 def detection_fasterrcnn(args, folder):
@@ -104,23 +107,54 @@ def detection_fasterrcnn(args, folder):
     if args.test:
         print('Test phase for Detection task')
 
-        # Data Loading Code
-        print('Loading Data for Detection Test')
-        dataset_test = SNDetection(args, split='test', transform=T.get_transform("test", nn))
-
-        print("Creating data loader")
-        test_loader = create_dataloader(dataset_test, 1)
-
-        # Retrieving the model
         print("Retrieving the model")
         best_model = torch.load(f"{folder}/best_model")
         model.load_state_dict(best_model['model_state_dict'])
+        model.eval()
 
-        print('Testing the model')
-        score = evaluate_fasterrcnn(model, test_loader)
-        score = round(float(score) * 100, 2)
+        # Load input video
+        video = cv2.VideoCapture('/mnt/beegfs/work/cvcs_2022_group20/test.mp4')
+        success, cv_image = video.read()
+        # Create output video
+        out = cv2.VideoWriter('output_detection.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 15,
+                              (cv_image.shape[1], cv_image.shape[0]))
 
-        print(f'Test mAP: {score}')
+        while True:
+            # Read frame from video
+            success, cv_image = video.read()
+            if not success:
+                break
+
+            # Image pre-processing
+            image = functional.to_tensor(cv_image)
+            image = image.cuda()
+
+            # Finding boxes in image
+            with torch.inference_mode():
+                output = model([image])
+
+            output = {k: v.cpu() for k, v in output[0].items()}
+            # Non Max Suppression to discard intersected superflous bboxes
+            output = apply_nms(output, iou_thresh=0.2, thresh=0.80)
+
+            ball_boxes = output['boxes'][np.where(output['labels'] == 1)]
+            ball_box = []
+
+            if len(ball_boxes) != 0:
+                idx = np.argmax(output['scores'][np.where(output['labels'] == 1)])
+                ball_box = ball_boxes[idx]
+
+            output['boxes'] = output['boxes'][np.where(output['labels'] != 1)]
+            output['labels'] = output['labels'][np.where(output['labels'] != 1)]
+            output['scores'] = output['scores'][np.where(output['labels'] != 1)]
+
+            image = draw_bbox(image, output, ball_box)
+            out.write(image)
+
+        # Release resources
+        video.release()
+        out.release()
+        cv2.destroyAllWindows()
 
     if not (args.train or args.test):
         sys.exit("Error: invalid split given")
