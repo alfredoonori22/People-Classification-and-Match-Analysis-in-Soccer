@@ -1,4 +1,6 @@
+import cv2
 import torch
+from torchvision.transforms import functional
 from torch import nn
 from torch.nn import CrossEntropyLoss
 from torchmetrics import F1Score
@@ -136,6 +138,43 @@ def evaluate_cnn(model, validation_loader):
     return res
 
 
+def test_fasterrcnn(model):
+    model.eval()
+
+    # Load input video
+    video = cv2.VideoCapture('/mnt/beegfs/work/cvcs_2022_group20/test.mp4')
+    success, cv_image = video.read()
+    # Create output video
+    out = cv2.VideoWriter('output_detection.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 15,
+                          (cv_image.shape[1], cv_image.shape[0]))
+
+    while True:
+        # Read frame from video
+        success, cv_image = video.read()
+        if not success:
+            break
+
+        # Image pre-processing
+        image = functional.to_tensor(cv_image)
+        image = image.cuda()
+
+        # Finding boxes in image
+        with torch.inference_mode():
+            output = model([image])
+
+        output = {k: v.cpu() for k, v in output[0].items()}
+        # Non Max Suppression to discard intersected superflous bboxes
+        output = apply_nms(output, iou_thresh=0.2, thresh=0.80)
+
+        image = draw_bbox(image, output, classes=3)
+        out.write(image)
+
+    # Release resources
+    video.release()
+    out.release()
+    cv2.destroyAllWindows()
+
+
 def test_cnn(fasterrcnn, cnn, test_loader):
     fasterrcnn.eval()
     cnn.eval()
@@ -173,7 +212,10 @@ def test_cnn(fasterrcnn, cnn, test_loader):
                     if prediction[0][pred] > 0.7:
                         output['labels'][b] = pred + 2      # Key values in MULTI_CLASS_DICT = Key values in PEOPLE_DICT
 
-            draw_bbox(image, output, classes=3)
+            # Draw bboxes and save the image
+            test_image = draw_bbox(image, output, classes=5)
+            cv2.imwrite(f"test-images/bboxes-{target[0]['image_id']}.png", test_image[:, :, ::-1])  # Revert channels order
+
             mAP_tot += ourMetric([output], [target[0]])
 
         mAP_tot /= (count + 1)

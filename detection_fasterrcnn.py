@@ -1,12 +1,10 @@
 import sys
-import cv2
 import torch.utils.data
 import transform as T
 from datasets import SNDetection
 from models import create_fasterrcnn
-from train_detection import train_one_epoch_fasterrcnn, evaluate_fasterrcnn
-from utils import create_dataloader, apply_nms, draw_bbox
-from torchvision.transforms import functional
+from train_detection import train_one_epoch_fasterrcnn, evaluate_fasterrcnn, test_fasterrcnn
+from utils import create_dataloader
 
 
 def detection_fasterrcnn(args, folder):
@@ -108,43 +106,12 @@ def detection_fasterrcnn(args, folder):
     if args.test:
         print('Test phase for Detection task')
 
-        print("Retrieving the model")
+        print(f"Retrieving the model from {folder}")
         best_model = torch.load(f"{folder}/best_model")
         model.load_state_dict(best_model['model_state_dict'])
-        model.eval()
 
-        # Load input video
-        video = cv2.VideoCapture('/mnt/beegfs/work/cvcs_2022_group20/test.mp4')
-        success, cv_image = video.read()
-        # Create output video
-        out = cv2.VideoWriter('output_detection.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 15,
-                              (cv_image.shape[1], cv_image.shape[0]))
-
-        while True:
-            # Read frame from video
-            success, cv_image = video.read()
-            if not success:
-                break
-
-            # Image pre-processing
-            image = functional.to_tensor(cv_image)
-            image = image.cuda()
-
-            # Finding boxes in image
-            with torch.inference_mode():
-                output = model([image])
-
-            output = {k: v.cpu() for k, v in output[0].items()}
-            # Non Max Suppression to discard intersected superflous bboxes
-            output = apply_nms(output, iou_thresh=0.2, thresh=0.80)
-
-            image = draw_bbox(image, output, classes=3)
-            out.write(image)
-
-        # Release resources
-        video.release()
-        out.release()
-        cv2.destroyAllWindows()
+        print("Testing the model")
+        test_fasterrcnn(model)
 
     if not (args.train or args.test):
         sys.exit("Error: invalid split given")

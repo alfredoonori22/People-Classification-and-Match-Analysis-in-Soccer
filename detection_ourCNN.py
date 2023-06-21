@@ -112,6 +112,17 @@ def detection_cnn(args, folder):
     if args.test:
         print('Test phase for our CNN')
 
+        print("Retrieving the Faster-RCNN model")
+        # Retrieveng our best faster-rcnn
+        fasterrcnn = create_fasterrcnn(dropout=True, train_backbone=True, num_classes=3)
+        best_model = torch.load(f"models/backbone/best_model")
+        fasterrcnn.load_state_dict(best_model['model_state_dict'])
+
+        # Retrieving the best cnn
+        print("Retrieving the CNN model")
+        best_model = torch.load(f"{folder}/best_model")
+        model.load_state_dict(best_model['model_state_dict'])
+
         # Data Loading Code
         print('Loading Data for Detection test')
         # We want just the label to be in the multiclass form, not the model
@@ -120,17 +131,6 @@ def detection_cnn(args, folder):
 
         print("Creating data loader")
         test_loader = create_dataloader(dataset_test, 1)
-
-        print("Retrieving the Faster-RCNN model")
-        # Retrieveng our best faster-rcnn
-        fasterrcnn = create_fasterrcnn(dropout=False, train_backbone=True, num_classes=3)
-        best_model = torch.load(f"models/backbone/best_model")
-        fasterrcnn.load_state_dict(best_model['model_state_dict'])
-
-        # Retrieving the best cnn
-        print("Retrieving the CNN model")
-        best_model = torch.load(f"{folder}/best_model")
-        model.load_state_dict(best_model['model_state_dict'])
 
         print('Testing the model')
         # score = evaluate_cnn(model, test_loader)
