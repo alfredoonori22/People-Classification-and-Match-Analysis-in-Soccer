@@ -2,7 +2,6 @@ import sys
 import cv2
 import torch.utils.data
 import transform as T
-import numpy as np
 from datasets import SNDetection
 from models import create_fasterrcnn
 from train_detection import train_one_epoch_fasterrcnn, evaluate_fasterrcnn
@@ -13,8 +12,9 @@ from torchvision.transforms import functional
 def detection_fasterrcnn(args, folder):
     # Create model
     num_classes = 5 if args.multiclass else 3
-    model = create_fasterrcnn(dropout=args.dropout, backbone=args.train_backbone, num_classes=num_classes)
+    model = create_fasterrcnn(dropout=args.dropout, train_backbone=args.train_backbone, num_classes=num_classes)
 
+    # Variable containg the model
     nn = "fasterrcnn"
 
     # Choosing split
@@ -44,7 +44,7 @@ def detection_fasterrcnn(args, folder):
         best_score = 0
         counter = 0
 
-        # Resuming
+        # Resuming from checkpoint
         if args.resume:
             print("Resuming")
             checkpoint = torch.load(f"{folder}/checkpoint_detection")
@@ -96,6 +96,7 @@ def detection_fasterrcnn(args, folder):
 
                 counter = 0
             else:
+                # Increment counter if model didn't improve his score
                 counter += 1
 
             if counter == args.patience:
@@ -137,18 +138,7 @@ def detection_fasterrcnn(args, folder):
             # Non Max Suppression to discard intersected superflous bboxes
             output = apply_nms(output, iou_thresh=0.2, thresh=0.80)
 
-            ball_boxes = output['boxes'][np.where(output['labels'] == 1)]
-            ball_box = []
-
-            if len(ball_boxes) != 0:
-                idx = np.argmax(output['scores'][np.where(output['labels'] == 1)])
-                ball_box = ball_boxes[idx]
-
-            output['boxes'] = output['boxes'][np.where(output['labels'] != 1)]
-            output['labels'] = output['labels'][np.where(output['labels'] != 1)]
-            output['scores'] = output['scores'][np.where(output['labels'] != 1)]
-
-            image = draw_bbox(image, output, ball_box)
+            image = draw_bbox(image, output, classes=3)
             out.write(image)
 
         # Release resources

@@ -4,9 +4,9 @@ from torchvision.models import ResNet50_Weights
 from torchvision.models.detection import fasterrcnn_resnet50_fpn, faster_rcnn
 
 
-def create_fasterrcnn(dropout, backbone, num_classes):
+def create_fasterrcnn(dropout, train_backbone, num_classes):
     print('Creating Faster-RCNN')
-    model = fasterrcnn_resnet50_fpn() if backbone else fasterrcnn_resnet50_fpn(weights_backbone=ResNet50_Weights.IMAGENET1K_V1)
+    model = fasterrcnn_resnet50_fpn() if train_backbone else fasterrcnn_resnet50_fpn(weights_backbone=ResNet50_Weights.IMAGENET1K_V1)
 
     # get number of input features for the classifier
     in_features = model.roi_heads.box_predictor.cls_score.in_features
@@ -24,7 +24,7 @@ def create_fasterrcnn(dropout, backbone, num_classes):
             nn.Dropout(p=0.15))
 
     # Freezing backbone
-    if not backbone:
+    if not train_backbone:
         model.backbone.requires_grad_(False)
 
     model.cuda()

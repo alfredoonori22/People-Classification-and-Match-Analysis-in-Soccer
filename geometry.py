@@ -129,6 +129,7 @@ def ShirtColor(image, bbox):
 
 
 def interpolate_frames(last_player):
+    # Find the nearest player to the last player correctly found
     bboxes = output['boxes'][np.where(output['labels'] == 2)]
     bboxes = [xyxy2xywh(bbox) for bbox in bboxes]
     NearestPlayer(bboxes, last_player, cv_image)
@@ -138,7 +139,7 @@ if __name__ == '__main__':
     args = get_args()
 
     # Retrieving best model
-    model = create_fasterrcnn(dropout=True, backbone=True, num_classes=5)
+    model = create_fasterrcnn(dropout=True, train_backbone=True, num_classes=5)
     best_model = torch.load('models/backbone/best_model')
     model.load_state_dict(best_model['model_state_dict'])
     model.eval()
@@ -150,10 +151,14 @@ if __name__ == '__main__':
     # Create output video
     out = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 15, (cv_image.shape[1], cv_image.shape[0]))
 
+    # Last player coordinates, updated when the nearest player is correctly found
     last_player = (0, 0)
+    # Same for the ball, contains the last ball correctly found by the model
     last_ball = (0, 0)
-    first = True
+    # List containing all the nearest player's shirt color
     colors = []
+    # Flag for the firs frame in the loop
+    first = True
 
     while True:
         # Read frame from video
@@ -171,20 +176,21 @@ if __name__ == '__main__':
 
         output = {k: v.cpu() for k, v in output[0].items()}
         # Non Max Suppression to discard intersected superflous bboxes
-        output = apply_nms(output, iou_thresh=0.2, thresh=0.75)
+        output = apply_nms(output, iou_thresh=0.2, thresh=0.7)
 
-        # Predicted ball boxes
+        # Predicted ball boxes and their scores
         ball_boxes = output['boxes'][np.where(output['labels'] == 1)]
         ball_scores = output['scores'][np.where(output['labels'] == 1)]
 
-        # Skip image without ball
+        # If the model didn't found a ball
         if len(ball_boxes) == 0:
             if not args.deep:
+                # For the non-deep model simpy skip the frame
                 cv2.putText(cv_image, "Ball not found", (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 3)
                 print("Ball not found")
             else:
                 if not first:
-                    # Track last player
+                    # For the deep model, if it isn't the first frame "track" last player correctly found
                     interpolate_frames(last_player)
                     print("Ball not found, tracking last player found")
 
@@ -220,9 +226,11 @@ if __name__ == '__main__':
 
             # Calculate velocity of the ball
             distance, _ = px2cm(distance[0], width_ball)
+            # Distance in cm in one frame, multiply it for 30 to get velocity in cm/s, divide it by 100 to get it in m/s
             velocity = round(distance * 0.30, 2)
             print(f'Ball is moving at: {velocity} m/s')
 
+        # Update last ball found coordinates
         last_ball = (center_x, center_y)
         first = False
 
@@ -289,11 +297,11 @@ if __name__ == '__main__':
 
     bins = np.bincount(kmeans.labels_)
 
-    # Teams' colors
+    # Teams' colors reversed in BGR and normalized
     first_color = kmeans.cluster_centers_[0][::-1]/255
     second_color = kmeans.cluster_centers_[1][::-1]/255
 
-    # Create plot
+    # Create ball possession plot
     fig, ax = plt.subplots()
     leg, _, _ = ax.pie(bins, labels=['Team A', 'Team B'], textprops=dict(color="w"), autopct='%1.1f%%', startangle=90, colors=[first_color, second_color])
     ax.set_title("Ball possession")

@@ -6,12 +6,6 @@ from torch.utils.data import BatchSampler, DataLoader
 from torchmetrics.detection import MeanAveragePrecision
 from torchvision.transforms import ToPILImage
 
-"""
-from torchvision.transforms import ToPILImage
-image1 = box_img.cpu()
-image1 = ToPILImage()(image1)
-image1.save("test-images/image1.png")"""
-
 # Model with only two classes
 CLASS_DICT = {'Ball': 1,
               'Person': 2}
@@ -26,10 +20,10 @@ PEOPLE_DICT = {'Player': 0,
                'Goalkeeper': 1,
                'Referee': 2}
 
-BBOX_COLORS = {1: [0, 0, 255],
-               2: [255, 0, 0],
-               3: [0, 85, 10],
-               4: [0, 0, 0]}
+BBOX_COLORS = {1: [0, 0, 255],    # Ball --> Red
+               2: [255, 0, 0],    # Players --> Blue
+               3: [0, 85, 10],    # Goalkeeper --> Green
+               4: [0, 0, 0]}      # Referee --> Black
 
 
 def collate_fn(batch):
@@ -43,39 +37,35 @@ def create_dataloader(dataset, batch_size):
     return loader
 
 
-def draw_bbox(image, output, ball_box):
+def draw_bbox(image, output, classes=3):
     image = image.cpu()
     image = ToPILImage()(image)
     image = np.array(image)
 
-    # keys = list(CLASS_DICT.keys())
-    keys = list(MULTI_CLASS_DICT.keys())
-
-    if len(ball_box) != 0:
-        cv2.rectangle(image, (int(ball_box[0]), int(ball_box[1])), (int(ball_box[2]), int(ball_box[3])), [0, 0, 255], 2)
+    keys = list(CLASS_DICT.keys()) if classes == 3 else list(MULTI_CLASS_DICT.keys())
 
     for i, (x1, y1, x2, y2) in enumerate(output['boxes']):
         cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), BBOX_COLORS[int(output['labels'][i])], 2)
-        # index = (list(MULTI_CLASS_DICT.values()).index(int(output['labels'][i])))
-        index = (list(MULTI_CLASS_DICT.values()).index(int(output['labels'][i])))
+        if classes == 3:
+            index = (list(CLASS_DICT.values()).index(int(output['labels'][i])))
+        else:
+            index = (list(MULTI_CLASS_DICT.values()).index(int(output['labels'][i])))
+
         cv2.putText(image, keys[index], (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9,
                     BBOX_COLORS[int(output['labels'][i])], 2)
 
-    # for (x1, y1, x2, y2) in target['boxes']:
-    #     cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (255, 255, 255), 2)
-
-    # cv2.imwrite(f"test-images/bbox-{target['image_id']}.png", image)
     return image
 
 
 def apply_nms(orig_prediction, iou_thresh=0.3, thresh=0.3):
-    # torchvision returns the indices of the bboxes to keep
+    # Indices of the bboxes to keep
     keep = torchvision.ops.nms(orig_prediction['boxes'], orig_prediction['scores'], iou_thresh)
     final_prediction = orig_prediction
     final_prediction['boxes'] = final_prediction['boxes'][keep]
     final_prediction['scores'] = final_prediction['scores'][keep]
     final_prediction['labels'] = final_prediction['labels'][keep]
 
+    # Keep only the output's bboxes with a score higher than the threshold
     if torch.any(final_prediction['scores'] > thresh):
         output = {'boxes': torch.stack([box for box, label, score in zip(final_prediction['boxes'], final_prediction['labels'], final_prediction['scores'])
                                         if score > thresh]),
@@ -105,20 +95,26 @@ def ourMetric(outputs, targets):
     metric.update(outputs, targets)
     res = metric.compute()
 
+    # Number of ball and people bboxes found
     num_balls = len(np.where(outputs[0]['labels'] == 1)[0])
     num_people = len(np.where(outputs[0]['labels'] != 1)[0])
 
     if res['map_per_class'].numel() == 1:
         return res['map_per_class']
 
+    # If there's the ball, the first element in res['map_per_class'] is ball's mAP,
+    # then we take only the classes' mAP that are positive (because when a class is not found in the image its mAP is -1)
     if num_balls:
         map_ball = res['map_per_class'][0] * num_balls
         res_people = [x for x in res['map_per_class'][1:].numpy() if x > 0]
-        map_people = np.sum(res_people) / len(res_people) * num_people
+        map_people = np.sum(res_people) / len(res_people) * num_people if len(res_people) else 0
 
+        # weighted mAP between ball mAP and people mAP,
+        # the class' weight is given by by the number of element in the image of that category
         mAP = (map_ball + map_people) / (num_balls + num_people)
     else:
+        # If there are no ball in the image all the element in res['map_per_class] refer to people classes
         res_people = [x for x in res['map_per_class'].numpy() if x > 0]
-        mAP = np.sum(res_people) / len(res_people)
+        mAP = np.sum(res_people) / len(res_people) if len(res_people) else 0
 
     return mAP

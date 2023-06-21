@@ -13,6 +13,7 @@ if __name__ == '__main__':
     data = list(json.load(open(os.path.join(path, f"Labels-{split}.json"))))
     labels = []
 
+    # Variable to count and then balance dataset's classes
     count_p = 0
     count_g = 0
     count_r = 0

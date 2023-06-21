@@ -1,12 +1,9 @@
 import ast
 import json
 import os
-
-import numpy as np
 import torch.utils.data
 from PIL import Image
 from SoccerNet.utils import getListGames
-
 import transform as T
 from utils import CLASS_DICT, MULTI_CLASS_DICT, PEOPLE_DICT
 
@@ -30,7 +27,7 @@ class SNDetection(torch.utils.data.Dataset):
         # Get the list of the selected subset of games
         self.list_games = getListGames(split, task="frames")
         if args.tiny is not None:
-            # Diminuiamo dimensione validation per debug
+            # Reduce validation set's size
             if split == "valid":
                 args.tiny = args.tiny // 5
             self.list_games = self.list_games[:args.tiny]
@@ -116,6 +113,7 @@ class SNDetection(torch.utils.data.Dataset):
                 boxes[:, 0::2] = boxes[:, 0::2] * x_scale
                 boxes[:, 1::2] = boxes[:, 1::2] * y_scale
 
+                # Append target dictionary for this image
                 self.targets.append({'boxes': boxes,
                                      'labels': torch.tensor(labels),
                                      'image_id': torch.tensor(float(image_id)),
@@ -135,6 +133,7 @@ class SNDetection(torch.utils.data.Dataset):
         image = Image.open(self.full_keys[idx]).convert('RGB')
         target = self.targets[idx]
 
+        # Pre-processing operations
         image, target = self.transforms(image, target, self.size)
 
         return image, target
@@ -145,6 +144,7 @@ class Football_People(torch.utils.data.Dataset):
     def __init__(self, args, split, transform=None):
 
         self.path = os.path.join(args.data_path, 'Football_People')
+        # Same size for all the images
         self.size = (40, 80)
 
         # t will be the list containg all the pre-process operation
@@ -175,75 +175,7 @@ class Football_People(torch.utils.data.Dataset):
         image = Image.open(self.full_keys[idx]).convert('RGB')
         target = self.targets[idx]
 
+        # Pre-processing operations
         image, target = self.transforms(image, target, self.size)
-
-        return image, target
-
-
-class MPIIDataset(torch.utils.data.Dataset):
-    def __init__(self, args, split, transform=None):
-
-        self.path = os.path.join(args.data_path, 'MPII')
-        self.num_joints = 16
-        self.flip_pairs = [[0, 5], [1, 4], [2, 3], [10, 15], [11, 14], [12, 13]]
-        self.parent_ids = [1, 2, 6, 6, 3, 4, 6, 6, 7, 8, 11, 12, 7, 7, 13, 14]
-        self.split = split
-        self.transform = transform
-
-        # Reading annotation file
-        file_name = os.path.join(f'{self.path}/mpii_annotations/mpii_{self.split}.json')
-        self.data = list(json.load(open(file_name)))
-        self.targets = list()
-        self.full_keys = list()
-
-        # Building the dataset
-        for i, ann in enumerate(self.data):
-            image_name = ann['image']
-            self.full_keys.append(os.path.join(f'{self.path}/images/{image_name}'))
-
-            c = np.array(ann['center'], dtype=float)
-            s = np.array([ann['scale'], ann['scale']], dtype=float)
-
-            # Adjust center/scale slightly to avoid cropping limbs
-            if c[0] != -1:
-                c[1] = c[1] + 15 * s[1]
-                s = s * 1.25
-
-            # MPII uses matlab format, index is based 1,
-            # we should first convert to 0-based index
-            c = c - 1
-
-            joints_3d = np.zeros((self.num_joints, 3), dtype=float)
-            joints_3d_vis = np.zeros((self.num_joints, 3), dtype=float)
-
-            if self.split != 'test':
-                joints = np.array(ann['joints'])
-                joints[:, 0:2] = joints[:, 0:2] - 1
-                joints_vis = np.array(ann['joints_vis'])
-                assert len(joints) == self.num_joints, \
-                    'joint num diff: {} vs {}'.format(len(joints),
-                                                      self.num_joints)
-
-                joints_3d[:, 0:2] = joints[:, 0:2]
-                joints_3d_vis[:, 0] = joints_vis[:]
-                joints_3d_vis[:, 1] = joints_vis[:]
-
-            self.targets.append({
-                'image': self.full_keys[i],
-                'center': c,
-                'scale': s,
-                'joints_3d': joints_3d,
-                'joints_3d_vis': joints_3d_vis
-            })
-
-    def __len__(self, ):
-        return len(self.targets)
-
-    def __getitem__(self, idx):
-
-        image = Image.open(self.full_keys[idx]).convert('RGB')
-        target = self.targets[idx]
-
-        # image, target = self.transforms(image, target, self.size)
 
         return image, target

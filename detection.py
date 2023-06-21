@@ -19,7 +19,7 @@ if __name__ == '__main__':
     if not torch.cuda.is_available():
         sys.exit('No cuda device')
 
-    # Choosing the correct folder depending on the model
+    # Choosing the correct folder depending on the command line arguments
     if args.multiclass:
         if args.dropout:
             folder = "models/model_multi_dropout"

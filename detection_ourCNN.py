@@ -14,6 +14,7 @@ def detection_cnn(args, folder):
     model = our_CNN()
     model.cuda()
 
+    # Variable containg the model
     nn = "cnn"
 
     # Choosing split
@@ -45,7 +46,7 @@ def detection_cnn(args, folder):
         best_score = 0
         counter = 0
 
-        # Resuming
+        # Resuming from checkpoint
         if args.resume:
             print("Resuming")
             checkpoint = torch.load(f"{folder}/checkpoint_detection")
@@ -99,6 +100,7 @@ def detection_cnn(args, folder):
 
                 counter = 0
             else:
+                # Increment counter if model didn't improve his score
                 counter += 1
 
             if counter == args.patience:
@@ -120,11 +122,12 @@ def detection_cnn(args, folder):
         test_loader = create_dataloader(dataset_test, 1)
 
         print("Retrieving the Faster-RCNN model")
-        fasterrcnn = create_fasterrcnn(dropout=False, backbone=True, num_classes=3)
+        # Retrieveng our best faster-rcnn
+        fasterrcnn = create_fasterrcnn(dropout=False, train_backbone=True, num_classes=3)
         best_model = torch.load(f"models/backbone/best_model")
         fasterrcnn.load_state_dict(best_model['model_state_dict'])
 
-        # Retrieving the model
+        # Retrieving the best cnn
         print("Retrieving the CNN model")
         best_model = torch.load(f"{folder}/best_model")
         model.load_state_dict(best_model['model_state_dict'])

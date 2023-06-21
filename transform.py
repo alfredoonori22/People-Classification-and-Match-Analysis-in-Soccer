@@ -1,5 +1,4 @@
 from typing import Tuple
-
 import torch
 from torchvision.transforms import Resize, functional, ColorJitter
 
