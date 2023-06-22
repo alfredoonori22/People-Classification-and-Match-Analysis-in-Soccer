@@ -40,6 +40,7 @@ pip install -r requirements.txt
 
 --test: If you want to test the model
 
+# Model
 --model: Select correct model to train (fasterrcnn or cnn), default: fastercnn
 
 --multiclass: Select correct version of Faster-RCNN: if given, differenziate between class people: Player, Goalkeeper, Referee) else predict just Person as class
@@ -48,6 +49,7 @@ pip install -r requirements.txt
 
 --train-backbone: If given train model from scratch, without initializing backbone with default weights (trained on IMAGENET1K_V1)
 
+# Training
 --resume: If given resume from checkpoint, else start training from epoch 1
 
 --batch-size or -b: Choose batch size, default: 4
