@@ -129,7 +129,7 @@ def ShirtColor(image, bbox):
 
 
 def interpolate_frames(last_player):
-    # Find the nearest player to the last player correctly found
+    # Find the nearest player to the last player correctly found among the players found in the new frame
     bboxes = output['boxes'][np.where(output['labels'] == 2)]
     bboxes = [xyxy2xywh(bbox) for bbox in bboxes]
     NearestPlayer(bboxes, last_player, cv_image)
@@ -140,16 +140,15 @@ if __name__ == '__main__':
 
     # Retrieving best model
     model = create_fasterrcnn(dropout=True, train_backbone=True, num_classes=5)
-    best_model = torch.load('models/backbone/best_model')
+    best_model = torch.load('models/backbone_multi/best_model')
     model.load_state_dict(best_model['model_state_dict'])
     model.eval()
 
     # Load input video
     video = cv2.VideoCapture('/mnt/beegfs/work/cvcs_2022_group20/test.mp4')
-    # video.set(cv2.CAP_PROP_FPS, 30)
     success, cv_image = video.read()
     # Create output video
-    out = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 15, (cv_image.shape[1], cv_image.shape[0]))
+    out = cv2.VideoWriter('output_analysis.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 15, (cv_image.shape[1], cv_image.shape[0]))
 
     # Last player coordinates, updated when the nearest player is correctly found
     last_player = (0, 0)
@@ -204,6 +203,9 @@ if __name__ == '__main__':
         # Ball coordinates
         x1, y1, x2, y2 = ball_box
         x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+
+        # Drawing Ball Box
+        cv2.rectangle(cv_image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
 
         # Ball's center coordinates in original image
         center_x = int((x1 + x2) / 2)
@@ -272,9 +274,6 @@ if __name__ == '__main__':
 
         # Update last player found
         last_player = (int(bboxes[idx][0]+bboxes[idx][2]/2), int(bboxes[idx][1]+bboxes[idx][3]/2))
-
-        # Ball
-        cv2.rectangle(cv_image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
 
         # Convert pixel distance to cm distance
         distance_cm, measure = px2cm(distance_px, width_ball)

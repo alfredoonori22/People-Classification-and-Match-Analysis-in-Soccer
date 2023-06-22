@@ -9,8 +9,6 @@ def get_args():
     parser.add_argument('--data-path', default='/mnt/beegfs/work/cvcs_2022_group20', help='Dataset path')
     parser.add_argument('--train', action='store_true', help='Train the model')
     parser.add_argument('--test', action='store_true', help='Only test the model')
-    parser.add_argument('--epochs', default=300, type=int)
-    parser.add_argument('-b', '--batch-size', default=4, type=int)
     parser.add_argument('--tiny', required=False, type=int, default=None, help='Select a subset of x games')
     parser.add_argument('--size', type=str, default="(1920,1080)", help='Target dimension for image pre-processing')
 
@@ -21,6 +19,8 @@ def get_args():
     parser.add_argument('--train-backbone', action='store_true', help='Train backbone')
 
     # Training
+    parser.add_argument('--epochs', default=300, type=int)
+    parser.add_argument('-b', '--batch-size', default=4, type=int)
     parser.add_argument('--resume', action='store_true', help='Resume from checkpoint')
     parser.add_argument('--start-epoch', type=int, default=0, help='Start epoch')
     parser.add_argument('--patience', type=int, default=20, help='Number of epochs before early stopping')
@@ -30,7 +30,7 @@ def get_args():
     parser.add_argument('-wd', '--weight-decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
     parser.add_argument('--lr', default=0.001, type=float, help='initial learning rate')
 
-    # Geometry
+    # Analysis
     parser.add_argument('--deep', action='store_true', help='Deep version of Geometry')
 
     args = parser.parse_args()

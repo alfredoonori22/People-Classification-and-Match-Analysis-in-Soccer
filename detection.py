@@ -35,7 +35,10 @@ if __name__ == '__main__':
         folder = "models/cnn"
 
     if args.train_backbone:
-        folder = "models/backbone"
+        if args.multiclass:
+            folder = "models/backbone_multi"
+        else:
+            folder = "models/backbone"
 
     if args.model == "fasterrcnn":
         detection_fasterrcnn(args, folder)

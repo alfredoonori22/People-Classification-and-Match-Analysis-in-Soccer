@@ -1,9 +1,7 @@
 import json
 import os
-
 import cv2
 from SoccerNet.utils import getListGames
-from tqdm import tqdm
 
 if __name__ == '__main__':
     path = os.path.join('/mnt/beegfs/work/cvcs_2022_group20/SoccerNet-v3')
@@ -18,7 +16,7 @@ if __name__ == '__main__':
     count_g = 0
     count_r = 0
 
-    for i, game in enumerate(tqdm(list_games)):
+    for i, game in enumerate(list_games):
         # Loop through the game
 
         keys = list(data[i]['actions'].keys())  # List of images of each game (actions)

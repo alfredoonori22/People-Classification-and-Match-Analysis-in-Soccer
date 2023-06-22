@@ -37,7 +37,7 @@ def create_dataloader(dataset, batch_size):
     return loader
 
 
-def draw_bbox(image, output, classes=3):
+def draw_bbox(image, output, classes):
     image = image.cpu()
     image = ToPILImage()(image)
     image = np.array(image)

@@ -1,7 +1,5 @@
 import sys
-
 import torch.utils.data
-
 import transform as T
 from datasets import SNDetection, Football_People
 from models import our_CNN, create_fasterrcnn
@@ -20,7 +18,7 @@ def detection_cnn(args, folder):
     # Choosing split
     if args.train:
         # Initialization and Configuration wandb
-        """
+        """ Plotting on wandb
             wandb.init(project="SoccerNet",
                    name="Detection CNN",
                    config={

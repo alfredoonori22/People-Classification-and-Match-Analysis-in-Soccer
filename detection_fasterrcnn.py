@@ -111,7 +111,7 @@ def detection_fasterrcnn(args, folder):
         model.load_state_dict(best_model['model_state_dict'])
 
         print("Testing the model")
-        test_fasterrcnn(model)
+        test_fasterrcnn(model, num_classes)
 
     if not (args.train or args.test):
         sys.exit("Error: invalid split given")
