@@ -66,6 +66,8 @@ pip install -r requirements.txt
 It doesn't need training, it uses the trained model from detection task.
 ```bash
 --deep: If given use deep model to detect players, otherwise use HogDescriptor, default=False
+
+--video-path or -v: Gives the path where is located the video used during the test, default=Is the datasets directory (/work)
 ```
 
 ## How to get the results
@@ -79,6 +81,9 @@ It doesn't need training, it uses the trained model from detection task.
 
 * Analysis
 
-  Result is a video, with ball tracked and nearest player boxes drawn frame by frame. The distance between ball and that player, and his shirt's color, are written on the top left corner of the video. Ball velocity is also given as output in the console.
+  Result is a composed of:
+
+  - A video, with ball tracked and nearest player boxes drawn frame by frame. The distance between ball and that player, and his shirt's color, are written on the top left corner of the video. Ball velocity is also given as output in the console.
 This video is stored in the current directory as "output_analysis.avi".
+  - An image, which represents the ball possession percentage of the two teams, in a pie chart. This image is stored in the current directory as "possession.jpeg".
 
