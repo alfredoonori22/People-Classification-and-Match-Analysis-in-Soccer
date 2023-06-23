@@ -6,7 +6,7 @@ from scipy.spatial.distance import cdist
 from sklearn.cluster import KMeans
 from torchvision.transforms import functional
 from argument_parser import get_args
-from models import create_fasterrcnn
+from Detection.models import create_fasterrcnn
 from utils import apply_nms, xyxy2xywh
 
 BALL_DIAMETER = 23
@@ -145,7 +145,7 @@ if __name__ == '__main__':
     model.eval()
 
     # Load input video
-    video = cv2.VideoCapture('/mnt/beegfs/work/cvcs_2022_group20/test.mp4')
+    video = cv2.VideoCapture(args.video_path)
     success, cv_image = video.read()
     # Create output video
     out = cv2.VideoWriter('output_analysis.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 15, (cv_image.shape[1], cv_image.shape[0]))
@@ -185,12 +185,17 @@ if __name__ == '__main__':
         if len(ball_boxes) == 0:
             if not args.deep:
                 # For the non-deep model simpy skip the frame
-                cv2.putText(cv_image, "Ball not found", (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 3)
+                (w, h), _ = cv2.getTextSize("Ball not found", cv2.FONT_HERSHEY_SIMPLEX, 0.9, 2)
+                cv2.rectangle(cv_image, (0, 0), (w + 10, 45), (255, 255, 255), -1)
+                cv2.putText(cv_image, "Ball not found", (5, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 2)
                 print("Ball not found")
             else:
                 if not first:
                     # For the deep model, if it isn't the first frame "track" last player correctly found
                     interpolate_frames(last_player)
+                    (w, h), _ = cv2.getTextSize("Ball not found, tracking last player found", cv2.FONT_HERSHEY_SIMPLEX, 0.9, 2)
+                    cv2.rectangle(cv_image, (0, 0), (w + 10, 45), (255, 255, 255), -1)
+                    cv2.putText(cv_image, "Ball not found, tracking last player found", (5, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 2)
                     print("Ball not found, tracking last player found")
 
             out.write(cv_image)
@@ -203,9 +208,6 @@ if __name__ == '__main__':
         # Ball coordinates
         x1, y1, x2, y2 = ball_box
         x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-
-        # Drawing Ball Box
-        cv2.rectangle(cv_image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
 
         # Ball's center coordinates in original image
         center_x = int((x1 + x2) / 2)
@@ -222,8 +224,12 @@ if __name__ == '__main__':
             if distance > 50:
                 if args.deep:
                     interpolate_frames(last_player)
+                (w, h), _ = cv2.getTextSize("Ball not found", cv2.FONT_HERSHEY_SIMPLEX, 0.9, 2)
+                cv2.rectangle(cv_image, (0, 0), (w + 10, 45), (255, 255, 255), -1)
+                cv2.putText(cv_image, "Ball not found", (5, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.9, (0, 0, 0), 2)
                 out.write(cv_image)
-                print('Ball is too distant from last position')
+                print('Ball not found')
                 continue
 
             # Calculate velocity of the ball
@@ -231,6 +237,9 @@ if __name__ == '__main__':
             # Distance in cm in one frame, multiply it for 30 to get velocity in cm/s, divide it by 100 to get it in m/s
             velocity = round(distance * 0.30, 2)
             print(f'Ball is moving at: {velocity} m/s')
+
+        # Drawing Ball Box
+        cv2.rectangle(cv_image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
 
         # Update last ball found coordinates
         last_ball = (center_x, center_y)
@@ -258,7 +267,9 @@ if __name__ == '__main__':
             bboxes = PeopleDetection(zoomed_image)
 
             if len(bboxes) == 0:
-                cv2.putText(cv_image, "No player nearby", (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 3)
+                (w, h), _ = cv2.getTextSize("No player nearby", cv2.FONT_HERSHEY_SIMPLEX, 0.9, 2)
+                cv2.rectangle(cv_image, (0, 0), (w + 10, 45), (255, 255, 255), -1)
+                cv2.putText(cv_image, "No player nearby", (5, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 2)
                 out.write(cv_image)
                 print("No player nearby")
                 continue
@@ -281,8 +292,11 @@ if __name__ == '__main__':
         # Find dominant shirt color
         color = ShirtColor(zoomed_image, bboxes[idx])
 
+        (w, h), _ = cv2.getTextSize(f'The closest player is {distance_cm} {measure} from the ball\nHis shirt color is BGR: '
+                                    f'{color}', cv2.FONT_HERSHEY_SIMPLEX, 0.9, 2)
+        cv2.rectangle(cv_image, (0, 0), (w + 10, 45), (255, 255, 255), -1)
         cv2.putText(cv_image, f'The closest player is {distance_cm} {measure} from the ball\nHis shirt color is BGR: '
-                              f'{color}', (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 3)
+                              f'{color}', (5, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 2)
 
         colors.append(list(color))
 

@@ -1,9 +1,10 @@
 import sys
 import torch.utils.data
-import transform as T
-from datasets import SNDetection, Football_People
-from models import our_CNN, create_fasterrcnn
-from train_detection import train_one_epoch_cnn, evaluate_cnn, test_cnn
+from Detection import transform as T
+from Datasets.datasets import SNDetection, Football_People
+from Detection.models import our_CNN, create_fasterrcnn
+from Detection.train import train_one_epoch_cnn, evaluate_cnn
+from Detection.test import test_cnn
 from utils import create_dataloader
 
 
@@ -110,10 +111,10 @@ def detection_cnn(args, folder):
     if args.test:
         print('Test phase for our CNN')
 
+        fasterrcnn = create_fasterrcnn(dropout=False, train_backbone=False, num_classes=3)
         print("Retrieving the Faster-RCNN model")
         # Retrieveng our best faster-rcnn
-        fasterrcnn = create_fasterrcnn(dropout=True, train_backbone=True, num_classes=3)
-        best_model = torch.load(f"models/backbone/best_model")
+        best_model = torch.load(f"models/model/best_model")
         fasterrcnn.load_state_dict(best_model['model_state_dict'])
 
         # Retrieving the best cnn

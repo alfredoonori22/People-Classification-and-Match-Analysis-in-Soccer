@@ -1,11 +1,9 @@
 import os
 import sys
-
 import torch.utils.data
-
 from argument_parser import get_args
-from detection_fasterrcnn import detection_fasterrcnn
-from detection_ourCNN import detection_cnn
+from Detection.detection_fasterrcnn import detection_fasterrcnn
+from Detection.detection_ourCNN import detection_cnn
 
 os.environ["WANDB_SILENT"] = "true"
 os.environ["WANDB__SERVICE_WAIT"] = "300"

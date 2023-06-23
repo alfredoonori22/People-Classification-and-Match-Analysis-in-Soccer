@@ -1,9 +1,10 @@
 import sys
 import torch.utils.data
-import transform as T
-from datasets import SNDetection
-from models import create_fasterrcnn
-from train_detection import train_one_epoch_fasterrcnn, evaluate_fasterrcnn, test_fasterrcnn
+from Datasets.datasets import SNDetection
+from Detection.models import create_fasterrcnn
+from Detection.train import train_one_epoch_fasterrcnn, evaluate_fasterrcnn
+from Detection.test import test_fasterrcnn
+from Detection import transform as T
 from utils import create_dataloader
 
 
@@ -111,7 +112,7 @@ def detection_fasterrcnn(args, folder):
         model.load_state_dict(best_model['model_state_dict'])
 
         print("Testing the model")
-        test_fasterrcnn(model, num_classes)
+        test_fasterrcnn(model, num_classes, args.video_path)
 
     if not (args.train or args.test):
         sys.exit("Error: invalid split given")

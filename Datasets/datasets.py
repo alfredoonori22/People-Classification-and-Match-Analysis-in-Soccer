@@ -4,7 +4,7 @@ import os
 import torch.utils.data
 from PIL import Image
 from SoccerNet.utils import getListGames
-import transform as T
+from Detection import transform as T
 from utils import CLASS_DICT, MULTI_CLASS_DICT, PEOPLE_DICT
 
 
