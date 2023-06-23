@@ -1,7 +1,7 @@
 # People Classification and Match Analysis in Soccer
 This project is developed the Computer Vision and Cognitive Systems exam of the University of Modena and Reggio Emilia.
 
-The goal is to provide an accurate Object detector, capable of differentiate people on the field in three classes: Player, Goalkeeper and Referee.
+The goal is to provide an accurate Object detector, capable of differentiate people on the field in three classes: **Player, Goalkeeper and Referee**.
 
 And then to exploit this informations to provide some statistics starting from a football match video, like:
 * the nearest player to the ball
@@ -34,7 +34,9 @@ pip install -r requirements.txt
 ```
 
 ## Instructions
-**detection.py options**
+* **detection.py options:**
+  
+  `python detection.py`
 ```bash
 --train: If you want to train the model
 
@@ -57,7 +59,9 @@ pip install -r requirements.txt
 --patience: Max number of epochs without improvements in validation score before early stopping
 ```
 
-**analysis.py options**
+* **analysis.py options:**
+
+    `python analysis.py`
 
 It doesn't need training, it uses the trained model from detection task.
 ```bash
