@@ -20,7 +20,7 @@ def get_args():
 
     # Test
     parser.add_argument('--test', action='store_true', help='Test the model')
-    parser.add_argument('-v', '--video-path', default='/mnt/beegfs/homes/aonori/SoccerNet/test.mp4', help='Test video path')
+    parser.add_argument('-v', '--video-path', default='test.mp4', help='Test video path')
 
     # Model
     parser.add_argument('--model', type=str, default='fasterrcnn', help='fasterrcnn or cnn')

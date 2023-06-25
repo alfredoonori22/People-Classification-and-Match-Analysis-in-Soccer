@@ -62,7 +62,9 @@ pip install -r requirements.txt
 
 --patience: Max number of epochs without improving validation score before early stopping, default=20
 ```
+### **Task I inference** (using our best model, with backbone's weights not initialized and dropout):
 
+  `python detection.py --test --train-backbone --dropout`
 * **analysis.py options:**
 
     `python analysis.py`
@@ -71,8 +73,12 @@ It doesn't need training, it uses the trained model from detection task.
 ```bash
 --deep: If given use deep model to detect players, otherwise use HogDescriptor, default=False
 
---video-path or -v: Gives the path where is located the video used during the test, default=Is the current directory
+--video-path or -v: Gives the path where is located the video used during the test, default="test.mp4" is in the current directory
 ```
+### **Task II inference** (using our best deep model)
+
+  `python analysis.py --deep`
+
 
 ## How to get the results
 * Faster-RCNN models
