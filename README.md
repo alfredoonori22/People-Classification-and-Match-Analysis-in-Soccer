@@ -9,6 +9,10 @@ And then to exploit this informations providing some statistics starting from a 
 * the dominant color of his shirt
 * the ball velocity
 
+<p align="center">
+  <img width="460" height="300" src="https://github.com/chiara-cap/SoccerNet/assets/62024453/0ae859c4-fc65-47b4-8c86-f3732a89e742">
+</p>
+
 ## Data used for training
 * [SoccerNet](https://www.soccer-net.org/) Dataset
 
