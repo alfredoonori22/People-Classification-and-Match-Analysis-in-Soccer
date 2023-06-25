@@ -65,6 +65,7 @@ pip install -r requirements.txt
 ### **Task I inference** (using our best model, with backbone's weights not initialized and dropout):
 
   `python detection.py --test --train-backbone --dropout`
+<br><br>
 * **analysis.py options:**
 
     `python analysis.py`
@@ -78,8 +79,7 @@ It doesn't need training, it uses the trained model from detection task.
 ### **Task II inference** (using our best deep model)
 
   `python analysis.py --deep`
-
-
+<br><br>
 ## How to get the results
 * Faster-RCNN models
   
