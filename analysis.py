@@ -221,7 +221,7 @@ if __name__ == '__main__':
             # Distance between new ball and the last ball found
             distance = cdist(np.array([last_ball]), np.array([(center_x, center_y)]), 'euclidean')[0]
 
-            if distance > 50:
+            if distance > 200:
                 if args.deep:
                     interpolate_frames(last_player)
                 (w, h), _ = cv2.getTextSize("Ball not found", cv2.FONT_HERSHEY_SIMPLEX, 0.9, 2)
