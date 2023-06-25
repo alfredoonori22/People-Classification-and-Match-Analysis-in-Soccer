@@ -292,10 +292,10 @@ if __name__ == '__main__':
         # Find dominant shirt color
         color = ShirtColor(zoomed_image, bboxes[idx])
 
-        (w, h), _ = cv2.getTextSize(f'The closest player is {distance_cm} {measure} from the ball\nHis shirt color is BGR: '
+        (w, h), _ = cv2.getTextSize(f'The closest player is {distance_cm} {measure} from the ball, his shirt color is BGR: '
                                     f'{color}', cv2.FONT_HERSHEY_SIMPLEX, 0.9, 2)
         cv2.rectangle(cv_image, (0, 0), (w + 10, 45), (255, 255, 255), -1)
-        cv2.putText(cv_image, f'The closest player is {distance_cm} {measure} from the ball\nHis shirt color is BGR: '
+        cv2.putText(cv_image, f'The closest player is {distance_cm} {measure} from the ball, is shirt color is BGR: '
                               f'{color}', (5, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 2)
 
         colors.append(list(color))
