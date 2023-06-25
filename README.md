@@ -71,7 +71,7 @@ It doesn't need training, it uses the trained model from detection task.
 ```bash
 --deep: If given use deep model to detect players, otherwise use HogDescriptor, default=False
 
---video-path or -v: Gives the path where is located the video used during the test, default=Is the datasets directory (/work)
+--video-path or -v: Gives the path where is located the video used during the test, default=Is the current directory
 ```
 
 ## How to get the results
