@@ -3,7 +3,7 @@ This project is developed for the Computer Vision and Cognitive Systems exam of 
 
 The goal is to provide an accurate Object detector, capable of differentiating people on the field in three classes: **Player, Goalkeeper and Referee**.
 
-And then to exploit this informations providing some statistics starting from a football match video, like:
+And then to exploit these informations providing some statistics starting from a football match video, like:
 * the nearest player to the ball
 * the distance between them
 * the dominant color of his shirt
