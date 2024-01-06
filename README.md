@@ -91,7 +91,7 @@ It doesn't need training, it uses the trained model from detection task.
 
 * Analysis
 
-  Result is a composed of:
+  Result is composed of:
 
   - A video, with ball tracked and nearest player boxes drawn frame by frame. The distance between ball and that player, and his shirt's color, are written on the top left corner of the video. Ball velocity is also given as output in the console.
 This video is stored in the current directory as "output_analysis.avi".
